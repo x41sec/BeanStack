@@ -1,27 +1,25 @@
 package burp;
 
+import burp.Config;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.ByteBuffer;
 import java.security.MessageDigest;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.concurrent.*;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.nio.ByteBuffer;
+import java.util.Set;
+import javax.swing.*;
 
 public class BurpExtender implements IBurpExtender, IHttpListener {
-	// TODO find a way to do settings (at least for the debug flag)
-	private final String API_URL = "http://18.184.145.100:8880/";
 	private final String RESPONSE_NOMATCH = "No matches found.";
-	private final String EXTENSION_NAME = "Java Fingerprinting using Stack Traces";
-	private final String ISSUE_TITLE = "Java Fingerprinter";
-	private final boolean DEBUG = true;
-
-    private IBurpExtenderCallbacks callbacks;
 
 	// Dictionary mapping request body hashes to response bodies
 	private Map<ByteBuffer, String> HttpReqMemoization;
@@ -29,18 +27,17 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 	// Hashes of issues to avoid duplicates
 	private Set<ByteBuffer> AlreadyFingerprinted;
 
+	// Background thread that does the lookups
+	private ExecutorService threader;
+
 	MessageDigest md5;
 
     @Override
     public void registerExtenderCallbacks(final IBurpExtenderCallbacks callbacks) {
-		if (DEBUG) {
-			System.out.println(EXTENSION_NAME + " extension's constructor called (with debug=true, compile-time).");
-		}
+        GlobalVars.callbacks = callbacks;
 
-        this.callbacks = callbacks;
-        
-        callbacks.setExtensionName(EXTENSION_NAME);
-        callbacks.registerHttpListener(this);
+        GlobalVars.callbacks.setExtensionName(GlobalVars.EXTENSION_NAME);
+        GlobalVars.callbacks.registerHttpListener(this);
 
 		this.AlreadyFingerprinted = new HashSet<ByteBuffer>();
 		this.HttpReqMemoization = new HashMap<ByteBuffer, String>();
@@ -49,20 +46,25 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 			this.md5 = MessageDigest.getInstance("MD5");
 		}
 		catch (java.security.NoSuchAlgorithmException e) {
-			e.printStackTrace(new java.io.PrintStream(System.out));
+			e.printStackTrace(new java.io.PrintStream(GlobalVars.debug));
 		}
 
+		this.threader = Executors.newSingleThreadExecutor();
+
+		GlobalVars.config = new Config();
+		GlobalVars.config.printSettings();
+
+		GlobalVars.callbacks.registerContextMenuFactory(new ContextMenuSettingsOptionAdder());
+
 		// Check if we already checked this URL
-		IScanIssue[] issuelist = callbacks.getScanIssues("");
+		IScanIssue[] issuelist = GlobalVars.callbacks.getScanIssues("");
 		for (IScanIssue si : issuelist) {
 			// Only add fingerprinting items
-			if (si.getIssueName().equals(ISSUE_TITLE)) {
+			if (si.getIssueName().equals(GlobalVars.config.getString("issuetitle"))) {
 				AlreadyFingerprinted.add(hashScanIssue(si));
 			}
 		}
-		if (DEBUG) {
-			System.out.println("Found " + Integer.toString(AlreadyFingerprinted.size()) + " fingerprints (for which we will avoid creating duplicate issues).");
-		}
+		GlobalVars.debug("Found " + Integer.toString(AlreadyFingerprinted.size()) + " fingerprints in already-existing issues (to avoid creating duplicate issues).");
     }
 
 	private ByteBuffer hashScanIssue(IScanIssue si) {
@@ -74,17 +76,13 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 			byte[] b_stacktrace = stacktrace.getBytes("UTF-8");
 			ByteBuffer tracedigest = ByteBuffer.wrap(md5.digest(b_stacktrace));
 			if (HttpReqMemoization.containsKey(tracedigest)) {
-				if (DEBUG) {
-					System.out.println("Trace found in memoization table, returning stored response.");
-				}
+				GlobalVars.debug("Trace found in memoization table, returning stored response.");
 				return HttpReqMemoization.get(tracedigest);
 			}
 
-			if (DEBUG) {
-				System.out.println("Submitting a trace: " + stacktrace.substring(0, 50));
-			}
+			GlobalVars.debug("Submitting a trace: " + stacktrace.substring(0, 50));
 
-			URL url = new URL(API_URL);
+			URL url = new URL(GlobalVars.config.getString("apiurl"));
 			HttpURLConnection req = (HttpURLConnection) url.openConnection();
 			req.setRequestMethod("POST");
 			//req.setRequestProperty("Content-Type", "text/plain");
@@ -97,11 +95,9 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 			os.close();
 
 			if (req.getResponseCode() != 200) {
-				callbacks.issueAlert("Extension " + EXTENSION_NAME + ": HTTP request for fingerprinting a Java stack trace failed with status " + Integer.toString(req.getResponseCode()));
+				GlobalVars.callbacks.issueAlert("Extension " + GlobalVars.EXTENSION_NAME + ": HTTP request for fingerprinting a Java stack trace failed with status " + Integer.toString(req.getResponseCode()));
 
-				if (DEBUG) {
-					System.out.println("HTTP request failed with status " + Integer.toString(req.getResponseCode()));
-				}
+				GlobalVars.debug("HTTP request failed with status " + Integer.toString(req.getResponseCode()));
 
 				return null;
 			}
@@ -112,19 +108,17 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 				response = null;
 			}
 
-			if (DEBUG) {
-				System.out.println("Result: " + response.substring(0, 30));
-			}
+			GlobalVars.debug("Result: " + response.substring(0, 30));
 
 			HttpReqMemoization.put(tracedigest, response);
 
 			return response;
 		}
 		catch (java.io.UnsupportedEncodingException e) {
-			e.printStackTrace(new java.io.PrintStream(System.out));
+			e.printStackTrace(new java.io.PrintStream(GlobalVars.debug));
 		}
 		catch (java.io.IOException e) {
-			e.printStackTrace(new java.io.PrintStream(System.out));
+			e.printStackTrace(new java.io.PrintStream(GlobalVars.debug));
 		}
 
 		return null;
@@ -145,64 +139,107 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 		// TODO we should try to match a few versions of the response, like urldecoded, str_replace(r'\$', '$'), maybe base64-decode?, and probably others
 		// TODO and maybe also the request instead of only the response?
 
+		Instant outerstart = Instant.now();
+
 		if (messageIsRequest)
 			return;
 
-		// Basically the pattern checks /\s[valid class path chars].[more valid class chars]([filename chars].java:1234)/
-		Pattern pattern = Pattern.compile("\\s([a-zA-Z0-9\\.\\$]{1,300}\\.[a-zA-Z0-9\\.\\$]{1,300})\\(([a-zA-Z0-9]{1,300})\\.java:\\d{1,6}\\)");
-		Matcher matcher = null;
-
-		try {
-			matcher = pattern.matcher(new String(baseRequestResponse.getResponse(), "UTF-8"));
-		}
-		catch (java.io.UnsupportedEncodingException e) {
-			e.printStackTrace(new java.io.PrintStream(System.out));
-		}
-
-		// Reconstruct the trace (since who knows what might be in between the lines, e.g. "&lt;br&gt;")
-		String stacktrace = "";
-		while (matcher.find()) {
-			if ( ! matcher.group(1).contains(".")) {
-				// I have yet to see a stack trace without a . in the first part
-				continue;
-			}
-			if ( ! (matcher.group(1).indexOf(matcher.group(2) + "$") >= 2
-				    || matcher.group(1).indexOf(matcher.group(2) + ".") >= 2)) {
-				// The filename should occur in the first part, either followed by a dollar or by a dot,
-				// and it usually does not start with that (so match from position 2 onwards, because
-				// there should be at least 1 character and a dot, like "a.test.run(test.java:42)").
-				continue;
-			}
-			stacktrace += matcher.group() + "\n";
-		}
-
-		// Check the trace with our back-end
-		String result = checktrace(stacktrace);
-
-		// Either some error or no results
-		if (result == null) {
+		if ( ! GlobalVars.config.getBoolean("enable")) {
+			GlobalVars.debug("Note: " + GlobalVars.EXTENSION_NAME_SHORT + " plugin is disabled.");
 			return;
 		}
 
-		IScanIssue issue = new CustomScanIssue(
-                    baseRequestResponse.getHttpService(),
-                    callbacks.getHelpers().analyzeRequest(baseRequestResponse).getUrl(), 
-                    new IHttpRequestResponse[] { baseRequestResponse }, 
-                    ISSUE_TITLE,
-                    result,
-                    "Information");
+		threader.submit(new Runnable() {
+			public void run() {
+				GlobalVars.debug("Started thread...");
+				Instant start = Instant.now();
 
-		ByteBuffer hash = hashScanIssue(issue);
+				// Basically the pattern checks /\s[valid class path chars].[more valid class chars]([filename chars].java:1234)/
+				Pattern pattern = Pattern.compile("\\s([a-zA-Z0-9\\.\\$]{1,300}\\.[a-zA-Z0-9\\.\\$]{1,300})\\(([a-zA-Z0-9]{1,300})\\.java:\\d{1,6}\\)");
+				Matcher matcher = null;
 
-		if ( ! AlreadyFingerprinted.add(hash)) {
-			// We already created an issue for this, avoid creating a duplicate.
-			if (DEBUG) {
-				System.out.println("Issue already exists! Avoiding duplicate.");
+				try {
+					matcher = pattern.matcher(new String(baseRequestResponse.getResponse(), "UTF-8"));
+				}
+				catch (java.io.UnsupportedEncodingException e) {
+					e.printStackTrace(new java.io.PrintStream(GlobalVars.debug));
+				}
+
+				// Reconstruct the trace (since who knows what might be in between the lines, e.g. "&lt;br&gt;")
+				String stacktrace = "";
+				while (matcher.find()) {
+					GlobalVars.debug(matcher.group(0));
+					if ( ! matcher.group(1).contains(".")) {
+						// Enforce a dot in the full class name (sanity check)
+						continue;
+					}
+					if ( ! (matcher.group(1).indexOf(matcher.group(2) + "$") >= 2
+							|| matcher.group(1).indexOf(matcher.group(2) + ".") >= 2)) {
+						// TODO is this check too strict?
+						/*
+java.lang.NullPointerException
+	at burp.ConfigMenu.run(Config.java:38)
+	at java.desktop/java.awt.event.InvocationEvent.dispatch(InvocationEvent.java:313)
+	at java.desktop/java.awt.EventQueue.dispatchEventImpl(EventQueue.java:770)
+	at java.desktop/java.awt.EventQueue$4.run(EventQueue.java:721)
+	at java.desktop/java.awt.EventQueue$4.run(EventQueue.java:715)
+	at java.base/java.security.AccessController.doPrivileged(Native Method)
+	at java.base/java.security.ProtectionDomain$JavaSecurityAccessImpl.doIntersectionPrivilege(ProtectionDomain.java:85)
+	at java.desktop/java.awt.EventQueue.dispatchEvent(EventQueue.java:740)
+	at java.desktop/java.awt.EventDispatchThread.pumpOneEventForFilters(EventDispatchThread.java:203)
+	at java.desktop/java.awt.EventDispatchThread.pumpEventsForFilter(EventDispatchThread.java:124)
+	at java.desktop/java.awt.EventDispatchThread.pumpEventsForHierarchy(EventDispatchThread.java:113)
+	at java.desktop/java.awt.EventDispatchThread.pumpEvents(EventDispatchThread.java:109)
+	at java.desktop/java.awt.EventDispatchThread.pumpEvents(EventDispatchThread.java:101)
+	at java.desktop/java.awt.EventDispatchThread.run(EventDispatchThread.java:90)
+						 */
+						// The filename should occur in the first part, either followed by a dollar or by a dot,
+						// and it usually does not start with that (so match from position 2 onwards, because
+						// there should be at least 1 character and a dot, like "a.test.run(test.java:42)").
+						continue;
+					}
+					stacktrace += matcher.group() + "\n";
+				}
+
+				GlobalVars.debug("Checked page for traces in " + String.valueOf(Duration.between(start, Instant.now()).toMillis()) + "ms");
+				start = Instant.now();
+
+				// Check the trace with our back-end
+				String result = checktrace(stacktrace);
+
+				GlobalVars.debug("checktrace() returned in " + String.valueOf(Duration.between(start, Instant.now()).toMillis()) + "ms");
+
+				// Either some error or no results
+				if (result == null) {
+					return;
+				}
+
+				IScanIssue issue = new CustomScanIssue(
+							baseRequestResponse.getHttpService(),
+							GlobalVars.callbacks.getHelpers().analyzeRequest(baseRequestResponse).getUrl(), 
+							new IHttpRequestResponse[] { baseRequestResponse }, 
+							GlobalVars.config.getString("issuetitle"),
+							result,
+							"Information");
+
+				ByteBuffer hash = hashScanIssue(issue);
+
+				if ( ! AlreadyFingerprinted.add(hash)) {
+					// We already created an issue for this, avoid creating a duplicate.
+					if (GlobalVars.config.getBoolean("logdups")) {
+						GlobalVars.debug("Issue already exists, but logging anyway because logdups config is set.");
+					}
+					else {
+						GlobalVars.debug("Issue already exists! Avoiding duplicate.");
+						return;
+					}
+				}
+
+				GlobalVars.callbacks.addScanIssue(issue);
 			}
-			return;
-		}
+		});
 
-		this.callbacks.addScanIssue(issue);
+		GlobalVars.debug("Burp callback handled in " + String.valueOf(Duration.between(outerstart, Instant.now()).toMillis()) + "ms");
 	}
 }
 
