@@ -148,7 +148,7 @@ public class Config {
         JPanel panel = new JPanel();
         panel.setLayout(new GridLayout(0, 2));
 
-		panel.add(new JLabel("User settings for " + GlobalVars.EXTENSION_NAME_SHORT + "."));
+		panel.add(new JLabel("Advanced settings for " + GlobalVars.EXTENSION_NAME_SHORT + "."));
 		panel.add(new JLabel(""));
 		panel.add(new JLabel("You usually do not need to touch this!"));
 		panel.add(new JLabel(""));

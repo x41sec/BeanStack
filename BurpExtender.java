@@ -85,7 +85,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 			URL url = new URL(GlobalVars.config.getString("apiurl"));
 			HttpURLConnection req = (HttpURLConnection) url.openConnection();
 			req.setRequestMethod("POST");
-			//req.setRequestProperty("Content-Type", "text/plain");
+			req.setRequestProperty("User-Agent", GlobalVars.USER_AGENT);
 
 			// write the post body
 			req.setDoOutput(true);
