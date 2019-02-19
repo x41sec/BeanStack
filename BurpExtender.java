@@ -216,8 +216,8 @@ java.lang.NullPointerException
 
 				IScanIssue issue = new CustomScanIssue(
 							baseRequestResponse.getHttpService(),
-							GlobalVars.callbacks.getHelpers().analyzeRequest(baseRequestResponse).getUrl(), 
-							new IHttpRequestResponse[] { baseRequestResponse }, 
+							GlobalVars.callbacks.getHelpers().analyzeRequest(baseRequestResponse).getUrl(),
+							new IHttpRequestResponse[] { baseRequestResponse },
 							GlobalVars.config.getString("issuetitle"),
 							result,
 							"Information");
@@ -254,8 +254,8 @@ class CustomScanIssue implements IScanIssue {
 
     public CustomScanIssue(
             IHttpService httpService,
-            URL url, 
-            IHttpRequestResponse[] httpMessages, 
+            URL url,
+            IHttpRequestResponse[] httpMessages,
             String name,
             String detail,
             String severity) {
@@ -266,7 +266,7 @@ class CustomScanIssue implements IScanIssue {
         this.detail = detail;
         this.severity = severity;
     }
-    
+
     @Override
     public URL getUrl() {
         return url;
