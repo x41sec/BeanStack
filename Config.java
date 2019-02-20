@@ -36,10 +36,11 @@ public class Config {
     public Config() {
         settings = new LinkedHashMap<>();
 		put("enable", true);
-		put("apiurl", "http://18.184.145.100:8880/");
-		put("issuetitle", "Java Fingerprint Found");
+		put("apikey", "none");
 		put("debug", true);
 		put("logdups", false);
+		put("issuetitle", "Java Fingerprint Found");
+		put("apiurl", "http://18.184.145.100:8880/");
 
         readableNames = new LinkedHashMap<>();
 		readableNames.put("enable", "Enable Lookups");
@@ -47,6 +48,7 @@ public class Config {
 		readableNames.put("issuetitle", "Issue Title");
 		readableNames.put("debug", "Print Debug Messages to Stdout");
 		readableNames.put("logdups", "Log Duplicates");
+		readableNames.put("apikey", "API Key");
 
         for (String key: settings.keySet()) {
             //callbacks.saveExtensionSetting(key, null); // purge saved settings

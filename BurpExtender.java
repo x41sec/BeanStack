@@ -90,6 +90,11 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 			// write the post body
 			req.setDoOutput(true);
 			java.io.OutputStream os = req.getOutputStream();
+			if (GlobalVars.config.getString("apikey").length() > 4) {
+				os.write("apikey=".getBytes("UTF-8"));
+				os.write(GlobalVars.config.getString("apikey").getBytes("UTF-8"));
+				os.write("&".getBytes("UTF-8"));
+			}
 			os.write("trace=".getBytes("UTF-8"));
 			os.write(java.net.URLEncoder.encode(stacktrace).getBytes("UTF-8"));
 			os.close();
