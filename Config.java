@@ -40,7 +40,7 @@ public class Config {
 		put("debug", true);
 		put("logdups", false);
 		put("issuetitle", "Java Fingerprint Found");
-		put("apiurl", "http://18.184.145.100:8880/");
+		put("apiurl", "http://18.184.145.100:8880/api/");
 
         readableNames = new LinkedHashMap<>();
 		readableNames.put("enable", "Enable Lookups");
