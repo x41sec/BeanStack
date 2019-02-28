@@ -32,6 +32,9 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 
 	MessageDigest md5;
 
+	private boolean showed429AlertWithApiKey = false;
+	private boolean showed429Alert = false;
+
     @Override
     public void registerExtenderCallbacks(final IBurpExtenderCallbacks callbacks) {
         GlobalVars.callbacks = callbacks;
@@ -99,18 +102,82 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 			os.write(java.net.URLEncoder.encode(stacktrace).getBytes("UTF-8"));
 			os.close();
 
-			if (req.getResponseCode() != 200) {
+			String response;
+
+			if (req.getResponseCode() == 204) {
+				response = null;
+			}
+			else if (req.getResponseCode() == 429) {
+				if (GlobalVars.config.getString("apikey").length() > 4) {
+					GlobalVars.debug("HTTP request failed: 429 (with API key)");
+					// An API key is set
+					String msg = "Your API key ran out of requests. For bulk\nlookup of stack traces, please contact us.";
+					if ( ! showed429AlertWithApiKey) {
+						// Only alert once; nobody wants to be annoyed by this stuff
+						showed429AlertWithApiKey = true;
+
+						JOptionPane.showMessageDialog(null, msg, "Burp Extension" + GlobalVars.EXTENSION_NAME_SHORT, JOptionPane.ERROR_MESSAGE);
+					}
+					GlobalVars.callbacks.issueAlert(msg);
+				}
+				else {
+					GlobalVars.debug("HTTP request failed: 429 (no API key set)");
+					if ( ! showed429Alert) {
+						// Only alert once; nobody wants to be annoyed by this stuff
+						showed429Alert = true;
+
+						// No API key set. Prompt for one and mention where they can get one.
+						String result = JOptionPane.showInputDialog(Config.getBurpFrame(),
+							"You hit the request limit for " + GlobalVars.EXTENSION_NAME_SHORT + ". "
+								+ "Please register on " + GlobalVars.REGURL + "\nfor a free API key. If you already have an API key, please enter it here.",
+							GlobalVars.EXTENSION_NAME + " API key",
+							JOptionPane.PLAIN_MESSAGE
+						);
+						if (result.length() > 0) {
+							GlobalVars.config.put("apikey", result);
+							GlobalVars.debug("apikey configured after prompt");
+						}
+					}
+					else {
+						GlobalVars.callbacks.issueAlert("Extension " + GlobalVars.EXTENSION_NAME_SHORT + ": You hit the request limit for the API. "
+							+ "Please register for a free API key to continue, or see our website for the current limit without API key.");
+					}
+				}
+				return null;
+			}
+			if (req.getResponseCode() == 401) {
+				GlobalVars.debug("HTTP request failed: invalid API key (401)");
+
+				// N.B. we thread this, but due to the thread pool of 1, further requests will just be queued, so we won't get dialogs on top of each other.
+				// Further requests will also automatically use the API key if the user enters one here.
+
+				String result = JOptionPane.showInputDialog(Config.getBurpFrame(),
+					"Your API key is invalid.\nIf you want to use a different API key, please enter it here.",
+					//GlobalVars.EXTENSION_NAME + " API key invalid",
+					GlobalVars.config.getString("apikey")
+				);
+				if (result != null && result.length() > 0) {
+					GlobalVars.config.put("apikey", result);
+				}
+				else {
+					// If they cancelled the dialog or emptied it, override the string so they don't get more of those alerts.
+					GlobalVars.config.put("apikey", "none");
+				}
+
+				return null;
+			}
+			else if (req.getResponseCode() != 200) {
 				GlobalVars.callbacks.issueAlert("Extension " + GlobalVars.EXTENSION_NAME + ": HTTP request for fingerprinting a Java stack trace failed with status " + Integer.toString(req.getResponseCode()));
 
 				GlobalVars.debug("HTTP request failed with status " + Integer.toString(req.getResponseCode()));
 
 				return null;
 			}
-
-			String response = readFully(req.getInputStream()).toString("UTF-8");
-
-			if (response.equals(RESPONSE_NOMATCH)) {
-				response = null;
+			else {
+				response = readFully(req.getInputStream()).toString("UTF-8");
+				if (response.equals(RESPONSE_NOMATCH)) {
+					response = null;
+				}
 			}
 
 			GlobalVars.debug("Result: " + response.substring(0, 30));

@@ -108,7 +108,7 @@ public class Config {
         settings.put(key, value);
     }
 
-    private void put(String key, Object value) {
+    public void put(String key, Object value) {
         settings.put(key, encode(value));
     }
 
@@ -150,9 +150,7 @@ public class Config {
         JPanel panel = new JPanel();
         panel.setLayout(new GridLayout(0, 2));
 
-		panel.add(new JLabel("Advanced settings for " + GlobalVars.EXTENSION_NAME_SHORT + "."));
-		panel.add(new JLabel(""));
-		panel.add(new JLabel("You usually do not need to touch this!"));
+		panel.add(new JLabel("Settings for " + GlobalVars.EXTENSION_NAME_SHORT + "."));
 		panel.add(new JLabel(""));
 
         HashMap<String, Object> configured = new HashMap<>();
@@ -219,7 +217,7 @@ class ContextMenuSettingsOptionAdder implements IContextMenuFactory, ActionListe
 		// The number was reverse engineered using the highly advanced method
 		// of println()ing getToolFlag and right clicking the desired place.
 		return invocation.getToolFlag() == 16 ? new ArrayList<>() {{
-			add(new JMenuItem(GlobalVars.EXTENSION_NAME_SHORT + " advanced settings") {{
+			add(new JMenuItem(GlobalVars.EXTENSION_NAME_SHORT + " settings") {{
 				addActionListener(outer);
 			}});
 		}} : null;
