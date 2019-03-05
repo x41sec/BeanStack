@@ -210,13 +210,13 @@ public class Config {
 class ContextMenuSettingsOptionAdder implements IContextMenuFactory, ActionListener {
     @Override
     public List<JMenuItem> createMenuItems(IContextMenuInvocation invocation) {
-		var outer = this;
+		ContextMenuSettingsOptionAdder outer = this;
 		// 16 is an undocumented magic number that indicates it was invoked
 		// from the Issues list in the Target tab. The place where our events
 		// are logged, so that seemed a logical place for the options button.
 		// The number was reverse engineered using the highly advanced method
 		// of println()ing getToolFlag and right clicking the desired place.
-		return invocation.getToolFlag() == 16 ? new ArrayList<>() {{
+		return invocation.getToolFlag() == 16 ? new ArrayList<JMenuItem>() {{
 			add(new JMenuItem(GlobalVars.EXTENSION_NAME_SHORT + " settings") {{
 				addActionListener(outer);
 			}});
