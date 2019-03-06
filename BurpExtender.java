@@ -74,10 +74,32 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 		return ByteBuffer.wrap(md5.digest((si.getUrl().toString() + "\n" + si.getIssueDetail()).getBytes()));
 	}
 
+	private byte[] buildHttpRequest(String host, String URI, String method, String body) {
+		String headers = "User-Agent: " + GlobalVars.USER_AGENT + "/" + GlobalVars.VERSION + "\r\n";
+		if (method.equals("POST")) {
+			headers += "Content-Type: application/x-www-form-urlencoded\r\n";
+			headers += "Content-Length: " + body.length() + "\r\n";
+		}
+		return (method + " " + URI + " HTTP/1.1\r\nHost: " + host + "\r\n" + headers + "\r\n" + body).getBytes();
+	}
+
+	private SHR parseHttpResponse(byte[] response) {
+		String[] headersbody = new String(response).split("\r\n\r\n", 2);
+		String[] headers = headersbody[0].split("\r\n");
+		String[] methodcodestatus = headers[0].split(" ", 3);
+
+		int status = Integer.parseInt(methodcodestatus[1]);
+		return new SHR(status, headersbody[1]);
+	}
+
+	private String url2uri(URL url) {
+		return (url.getPath() != null ? url.getPath() : "")
+			+ (url.getQuery() != null ? url.getQuery() : "");
+	}
+
 	private String checktrace(String stacktrace) {
 		try {
-			byte[] b_stacktrace = stacktrace.getBytes("UTF-8");
-			ByteBuffer tracedigest = ByteBuffer.wrap(md5.digest(b_stacktrace));
+			ByteBuffer tracedigest = ByteBuffer.wrap(md5.digest(stacktrace.getBytes("UTF-8")));
 			if (HttpReqMemoization.containsKey(tracedigest)) {
 				GlobalVars.debug("Trace found in memoization table, returning stored response.");
 				return HttpReqMemoization.get(tracedigest);
@@ -85,29 +107,27 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 
 			GlobalVars.debug("Submitting a trace: " + stacktrace.substring(0, 50));
 
-			URL url = new URL(GlobalVars.config.getString("apiurl"));
-			HttpURLConnection req = (HttpURLConnection) url.openConnection();
-			req.setRequestMethod("POST");
-			req.setRequestProperty("User-Agent", GlobalVars.USER_AGENT);
-
-			// write the post body
-			req.setDoOutput(true);
-			java.io.OutputStream os = req.getOutputStream();
+			String body = "";
 			if (GlobalVars.config.getString("apikey").length() > 4) {
-				os.write("apikey=".getBytes("UTF-8"));
-				os.write(GlobalVars.config.getString("apikey").getBytes("UTF-8"));
-				os.write("&".getBytes("UTF-8"));
+				body += "apikey=";
+				body += GlobalVars.config.getString("apikey");
+				body += "&";
 			}
-			os.write("trace=".getBytes("UTF-8"));
-			os.write(java.net.URLEncoder.encode(stacktrace).getBytes("UTF-8"));
-			os.close();
+			body += "trace=";
+			body += java.net.URLEncoder.encode(stacktrace);
 
-			String response;
+			URL url = new URL(GlobalVars.config.getString("apiurl"));
+			byte[] httpreq = buildHttpRequest(url.getHost(), url2uri(url), "POST", body);
+			boolean ishttps = url.getProtocol().toLowerCase().equals("https");
+			GlobalVars.debug(new String(httpreq));
+			SHR response = parseHttpResponse(GlobalVars.callbacks.makeHttpRequest(url.getHost(), url.getPort(), ishttps, httpreq));
 
-			if (req.getResponseCode() == 204) {
-				response = null;
+			String retval; // Return value
+
+			if (response.status == 204) {
+				retval = null;
 			}
-			else if (req.getResponseCode() == 429) {
+			else if (response.status == 429) {
 				if (GlobalVars.config.getString("apikey").length() > 4) {
 					GlobalVars.debug("HTTP request failed: 429 (with API key)");
 					// An API key is set
@@ -145,7 +165,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 				}
 				return null;
 			}
-			if (req.getResponseCode() == 401) {
+			if (response.status == 401) {
 				GlobalVars.debug("HTTP request failed: invalid API key (401)");
 
 				// N.B. we thread this, but due to the thread pool of 1, further requests will just be queued, so we won't get dialogs on top of each other.
@@ -166,25 +186,25 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 
 				return null;
 			}
-			else if (req.getResponseCode() != 200) {
-				GlobalVars.callbacks.issueAlert("Extension " + GlobalVars.EXTENSION_NAME + ": HTTP request for fingerprinting a Java stack trace failed with status " + Integer.toString(req.getResponseCode()));
+			else if (response.status != 200) {
+				GlobalVars.callbacks.issueAlert("Extension " + GlobalVars.EXTENSION_NAME + ": HTTP request for fingerprinting a Java stack trace failed with status " + Integer.toString(response.status));
 
-				GlobalVars.debug("HTTP request failed with status " + Integer.toString(req.getResponseCode()));
+				GlobalVars.debug("HTTP request failed with status " + Integer.toString(response.status));
 
 				return null;
 			}
 			else {
-				response = readFully(req.getInputStream()).toString("UTF-8");
-				if (response.equals(RESPONSE_NOMATCH)) {
-					response = null;
+				retval = response.body;
+				if (retval.equals(RESPONSE_NOMATCH)) {
+					retval = null;
 				}
 			}
 
-			GlobalVars.debug("Result: " + response.substring(0, 30));
+			GlobalVars.debug("Result: " + retval.substring(0, 30));
 
-			HttpReqMemoization.put(tracedigest, response);
+			HttpReqMemoization.put(tracedigest, retval);
 
-			return response;
+			return retval;
 		}
 		catch (java.io.UnsupportedEncodingException e) {
 			e.printStackTrace(new java.io.PrintStream(GlobalVars.debug));
@@ -196,25 +216,14 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 		return null;
 	}
 
-    private java.io.ByteArrayOutputStream readFully(java.io.InputStream inputStream) throws java.io.IOException {
-        java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
-        byte[] buffer = new byte[1024];
-        int length = 0;
-        while ((length = inputStream.read(buffer)) != -1) {
-            baos.write(buffer, 0, length);
-        }
-        return baos;
-    }
-
     @Override
 	public void processHttpMessage(int toolFlag, boolean messageIsRequest, IHttpRequestResponse baseRequestResponse) {
-		// TODO we should try to match a few versions of the response, like urldecoded, str_replace(r'\$', '$'), maybe base64-decode?, and probably others
-		// TODO and maybe also the request instead of only the response?
-
 		Instant outerstart = Instant.now();
 
-		if (messageIsRequest)
+		if (messageIsRequest) {
+			// TODO maybe also the request instead of only the response?
 			return;
+		}
 
 		if ( ! GlobalVars.config.getBoolean("enable")) {
 			GlobalVars.debug("Note: " + GlobalVars.EXTENSION_NAME_SHORT + " plugin is disabled.");
@@ -248,6 +257,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 					if ( ! (matcher.group(1).indexOf(matcher.group(2) + "$") >= 2
 							|| matcher.group(1).indexOf(matcher.group(2) + ".") >= 2)) {
 						// TODO is this check too strict?
+						// (It's strict because, if it's too loose, we might submit all sorts of private data to our API)
 						/*
 java.lang.NullPointerException
 	at burp.ConfigMenu.run(Config.java:38)
@@ -312,6 +322,15 @@ java.lang.NullPointerException
 		});
 
 		GlobalVars.debug("Burp callback handled in " + String.valueOf(Duration.between(outerstart, Instant.now()).toMillis()) + "ms");
+	}
+}
+
+class SHR {
+	public final int status;
+	public final String body;
+	public SHR(int status, String body) {
+		this.status = status;
+		this.body = body;
 	}
 }
 
