@@ -39,8 +39,8 @@ public class Config {
 		put("apikey", "none");
 		put("debug", true);
 		put("logdups", false);
-		put("issuetitle", "Java Fingerprint Found");
-		put("apiurl", "http://18.184.145.100:8880/api/");
+		put("issuetitle", "Stack Trace Fingerprint Found");
+		put("apiurl", "http://beanstack.io/api/");
 
         readableNames = new LinkedHashMap<>();
 		readableNames.put("enable", "Enable Lookups");

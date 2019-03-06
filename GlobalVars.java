@@ -8,11 +8,11 @@ class GlobalVars {
 	// ends up in our logs). If you did not coordinate the release with us,
 	// please include a URL so we can reach you in case of problems or if, for
 	// example, our API is going to change.
-	public static final String USER_AGENT = "X41-javafp-Burp-plugin";
-	public static final String EXTENSION_NAME = "Java Fingerprinting using Stack Traces";
-	public static final String EXTENSION_NAME_SHORT = "JavaFP";
-	public static final String VERSION = "0.0.0";
-	public static final String REGURL = "https://TODO"; // TODO register url
+	public static final String USER_AGENT = "X41-Beanstack-BApp";
+	public static final String EXTENSION_NAME = "X41 Beanstack";
+	public static final String EXTENSION_NAME_SHORT = "Beanstack";
+	public static final String VERSION = "0.0.1";
+	public static final String REGURL = "https://beanstack.io"; // TODO register url
 
 	public static IBurpExtenderCallbacks callbacks;
 	public static Config config;
