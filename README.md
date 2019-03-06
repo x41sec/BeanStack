@@ -18,7 +18,7 @@ build probably produced a class file too new for Burp's default jre to load.
 - Extender tab
 - Extensions subtab
 - Click the Add button
-- Select `build/libs/javafp.jar`
+- Select `build/libs/beanstack.jar`
 - next next yes finish close
 
 ### Use
