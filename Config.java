@@ -190,6 +190,9 @@ public class Config {
                 }
                 else {
                     val = ((JTextField) val).getText();
+					if (key == "apikey" && ! ((String)val).endsWith("/")) {
+						val += "/";
+					}
                 }
                 put(key, val);
                 GlobalVars.callbacks.saveExtensionSetting(key, encode(val));
