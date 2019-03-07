@@ -1,5 +1,6 @@
 package burp;
 
+import burp.Blake2b;
 import burp.Config;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -30,7 +31,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 	// Background thread that does the lookups
 	private ExecutorService threader;
 
-	MessageDigest md;
+	final Blake2b blake2b = Blake2b.Digest.newInstance(16);
 
 	private boolean showed429AlertWithApiKey = false;
 	private boolean showed429Alert = false;
@@ -46,13 +47,6 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 		this.HttpReqMemoization = new HashMap<ByteBuffer, String>();
 
 		this.threader = Executors.newSingleThreadExecutor();
-
-		try {
-			md = MessageDigest.getInstance("SHA-256");
-		}
-		catch (java.security.NoSuchAlgorithmException e) {
-			e.printStackTrace();
-		}
 
 		GlobalVars.config = new Config();
 		GlobalVars.config.printSettings();
@@ -71,7 +65,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
     }
 
 	private ByteBuffer hashScanIssue(IScanIssue si) {
-		return ByteBuffer.wrap(md.digest((si.getUrl().toString() + "\n" + si.getIssueDetail()).getBytes()));
+		return ByteBuffer.wrap(blake2b.digest((si.getUrl().toString() + "\n" + si.getIssueDetail()).getBytes()));
 	}
 
 	private byte[] buildHttpRequest(String host, String URI, String method, String body) {
@@ -99,7 +93,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 
 	private String checktrace(String stacktrace) {
 		try {
-			ByteBuffer tracedigest = ByteBuffer.wrap(md.digest(stacktrace.getBytes("UTF-8")));
+			ByteBuffer tracedigest = ByteBuffer.wrap(blake2b.digest(stacktrace.getBytes("UTF-8")));
 			if (HttpReqMemoization.containsKey(tracedigest)) {
 				GlobalVars.debug("Trace found in memoization table, returning stored response.");
 				return HttpReqMemoization.get(tracedigest);
