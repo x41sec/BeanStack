@@ -190,7 +190,7 @@ public class Config {
                 }
                 else {
                     val = ((JTextField) val).getText();
-					if (key == "apikey" && ! ((String)val).endsWith("/")) {
+					if (key.equals("apiurl") && ! ((String)val).endsWith("/")) {
 						val += "/";
 					}
                 }

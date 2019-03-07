@@ -1,5 +1,6 @@
 package burp;
 
+import burp.Blake2b;
 import burp.Config;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -30,7 +31,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 	// Background thread that does the lookups
 	private ExecutorService threader;
 
-	MessageDigest md5;
+	final Blake2b blake2b = Blake2b.Digest.newInstance(16);
 
 	private boolean showed429AlertWithApiKey = false;
 	private boolean showed429Alert = false;
@@ -44,13 +45,6 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 
 		this.AlreadyFingerprinted = new HashSet<ByteBuffer>();
 		this.HttpReqMemoization = new HashMap<ByteBuffer, String>();
-
-		try {
-			this.md5 = MessageDigest.getInstance("MD5");
-		}
-		catch (java.security.NoSuchAlgorithmException e) {
-			e.printStackTrace(new java.io.PrintStream(GlobalVars.debug));
-		}
 
 		this.threader = Executors.newSingleThreadExecutor();
 
@@ -71,7 +65,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
     }
 
 	private ByteBuffer hashScanIssue(IScanIssue si) {
-		return ByteBuffer.wrap(md5.digest((si.getUrl().toString() + "\n" + si.getIssueDetail()).getBytes()));
+		return ByteBuffer.wrap(blake2b.digest((si.getUrl().toString() + "\n" + si.getIssueDetail()).getBytes()));
 	}
 
 	private byte[] buildHttpRequest(String host, String URI, String method, String body) {
@@ -99,7 +93,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 
 	private String checktrace(String stacktrace) {
 		try {
-			ByteBuffer tracedigest = ByteBuffer.wrap(md5.digest(stacktrace.getBytes("UTF-8")));
+			ByteBuffer tracedigest = ByteBuffer.wrap(blake2b.digest(stacktrace.getBytes("UTF-8")));
 			if (HttpReqMemoization.containsKey(tracedigest)) {
 				GlobalVars.debug("Trace found in memoization table, returning stored response.");
 				return HttpReqMemoization.get(tracedigest);
@@ -119,8 +113,8 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 			URL url = new URL(GlobalVars.config.getString("apiurl"));
 			byte[] httpreq = buildHttpRequest(url.getHost(), url2uri(url), "POST", body);
 			boolean ishttps = url.getProtocol().toLowerCase().equals("https");
-			GlobalVars.debug(new String(httpreq));
-			SHR response = parseHttpResponse(GlobalVars.callbacks.makeHttpRequest(url.getHost(), url.getPort(), ishttps, httpreq));
+			int port = url.getPort() == -1 ? url.getDefaultPort() : url.getPort();
+			SHR response = parseHttpResponse(GlobalVars.callbacks.makeHttpRequest(url.getHost(), port, ishttps, httpreq));
 
 			String retval; // Return value
 
@@ -165,7 +159,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 				}
 				return null;
 			}
-			if (response.status == 401) {
+			else if (response.status == 401) {
 				GlobalVars.debug("HTTP request failed: invalid API key (401)");
 
 				// N.B. we thread this, but due to the thread pool of 1, further requests will just be queued, so we won't get dialogs on top of each other.
@@ -187,7 +181,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 				return null;
 			}
 			else if (response.status != 200) {
-				GlobalVars.callbacks.issueAlert("Extension " + GlobalVars.EXTENSION_NAME + ": HTTP request for fingerprinting a Java stack trace failed with status " + Integer.toString(response.status));
+				GlobalVars.callbacks.issueAlert("Extension " + GlobalVars.EXTENSION_NAME + ": HTTP request to back-end failed with status " + Integer.toString(response.status));
 
 				GlobalVars.debug("HTTP request failed with status " + Integer.toString(response.status));
 
@@ -233,7 +227,6 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 		threader.submit(new Runnable() {
 			public void run() {
 				GlobalVars.debug("Started thread...");
-				Instant start = Instant.now();
 
 				// Basically the pattern checks /\s[valid class path chars].[more valid class chars]([filename chars].java:1234)/
 				Pattern pattern = Pattern.compile("\\s([a-zA-Z0-9\\.\\$]{1,300}\\.[a-zA-Z0-9\\.\\$]{1,300})\\(([a-zA-Z0-9]{1,300})\\.java:\\d{1,6}\\)");
@@ -283,8 +276,7 @@ java.lang.NullPointerException
 					stacktrace += matcher.group() + "\n";
 				}
 
-				GlobalVars.debug("Checked page for traces in " + String.valueOf(Duration.between(start, Instant.now()).toMillis()) + "ms");
-				start = Instant.now();
+				Instant start = Instant.now();
 
 				// Check the trace with our back-end
 				String result = checktrace(stacktrace);
