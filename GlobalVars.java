@@ -8,9 +8,9 @@ class GlobalVars {
 	// ends up in our logs). If you did not coordinate the release with us,
 	// please include a URL so we can reach you in case of problems or if, for
 	// example, our API is going to change.
-	public static final String USER_AGENT = "X41-Beanstack-BApp";
-	public static final String EXTENSION_NAME = "X41 Beanstack";
-	public static final String EXTENSION_NAME_SHORT = "Beanstack";
+	public static final String USER_AGENT = "X41-BeanStack-BApp";
+	public static final String EXTENSION_NAME = "X41 BeanStack";
+	public static final String EXTENSION_NAME_SHORT = "BeanStack";
 	public static final String VERSION = "0.0.1";
 	public static final String REGURL = "https://beanstack.io"; // TODO register url
 

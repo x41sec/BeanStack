@@ -165,7 +165,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 				GlobalVars.debug("HTTP request failed: invalid API key (401)");
 
 				// N.B. we thread this, but due to the thread pool of 1, further requests will just be queued, so we won't get dialogs on top of each other.
-				// Further requests will also automatically use the API key if the user enters one here.
+				// Further requests will also automatically use the API key if the user enters one here, even if they were already queued previously.
 
 				String result = JOptionPane.showInputDialog(Config.getBurpFrame(),
 					"Your API key is invalid.\nIf you want to use a different API key, please enter it here.",
