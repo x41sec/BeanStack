@@ -101,8 +101,10 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 
 			GlobalVars.debug("Submitting a trace: " + stacktrace.substring(0, 50));
 
+			boolean isset_apikey = GlobalVars.config.getString("apikey").length() > 4;
+
 			String body = "";
-			if (GlobalVars.config.getString("apikey").length() > 4) {
+			if (isset_apikey) {
 				body += "apikey=";
 				body += GlobalVars.config.getString("apikey");
 				body += "&";
@@ -122,7 +124,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 				retval = null;
 			}
 			else if (response.status == 429) {
-				if (GlobalVars.config.getString("apikey").length() > 4) {
+				if (isset_apikey) {
 					GlobalVars.debug("HTTP request failed: 429 (with API key)");
 					// An API key is set
 					String msg = "Your API key ran out of requests. For bulk\nlookup of stack traces, please contact us.";
@@ -159,7 +161,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 				}
 				return null;
 			}
-			else if (response.status == 401) {
+			else if (response.status == 401 && isset_apikey) {
 				GlobalVars.debug("HTTP request failed: invalid API key (401)");
 
 				// N.B. we thread this, but due to the thread pool of 1, further requests will just be queued, so we won't get dialogs on top of each other.
