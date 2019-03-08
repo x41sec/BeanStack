@@ -90,6 +90,8 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 	}
 
 	private String checktrace(String stacktrace) {
+		String retval = null; // Return value
+
 		try {
 			ByteBuffer tracedigest = ByteBuffer.wrap(blake2b.digest(stacktrace.getBytes("UTF-8")));
 			if (HttpReqMemoization.containsKey(tracedigest)) {
@@ -97,101 +99,114 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 				return HttpReqMemoization.get(tracedigest);
 			}
 
-			GlobalVars.debug("Submitting a trace: " + stacktrace.substring(0, 50));
-
-			boolean isset_apikey = GlobalVars.config.getString("apikey").length() > 4;
-
-			String body = "";
-			if (isset_apikey) {
-				body += "apikey=";
-				body += GlobalVars.config.getString("apikey");
-				body += "&";
-			}
-			body += "trace=";
-			body += java.net.URLEncoder.encode(stacktrace);
-
 			URL url = new URL(GlobalVars.config.getString("apiurl"));
-			byte[] httpreq = buildHttpRequest(url.getHost(), url2uri(url), "POST", body);
 			boolean ishttps = url.getProtocol().toLowerCase().equals("https");
 			int port = url.getPort() == -1 ? url.getDefaultPort() : url.getPort();
-			SHR response = parseHttpResponse(GlobalVars.callbacks.makeHttpRequest(url.getHost(), port, ishttps, httpreq));
 
-			String retval; // Return value
+			boolean retry = true;
+			while (retry) {
+				retry = false;
 
-			if (response.status == 204) {
-				retval = null;
-			}
-			else if (response.status == 429) {
+				GlobalVars.debug("Submitting a trace: " + stacktrace.substring(0, 50));
+
+				boolean isset_apikey = GlobalVars.config.getString("apikey").length() > 4;
+
+				String body = "";
 				if (isset_apikey) {
-					GlobalVars.debug("HTTP request failed: 429 (with API key)");
-					// An API key is set
-					String msg = "Your API key ran out of requests. For bulk\nlookup of stack traces, please contact us.";
-					if ( ! showed429AlertWithApiKey) {
-						// Only alert once; nobody wants to be annoyed by this stuff
-						showed429AlertWithApiKey = true;
-
-						JOptionPane.showMessageDialog(null, msg, "Burp Extension" + GlobalVars.EXTENSION_NAME_SHORT, JOptionPane.ERROR_MESSAGE);
-					}
-					GlobalVars.callbacks.issueAlert(msg);
+					body += "apikey=";
+					body += GlobalVars.config.getString("apikey");
+					body += "&";
 				}
-				else {
-					GlobalVars.debug("HTTP request failed: 429 (no API key set)");
-					if ( ! showed429Alert) {
-						// Only alert once; nobody wants to be annoyed by this stuff
-						showed429Alert = true;
+				body += "trace=";
+				body += java.net.URLEncoder.encode(stacktrace);
 
-						// No API key set. Prompt for one and mention where they can get one.
-						String result = JOptionPane.showInputDialog(Config.getBurpFrame(),
-							"You hit the request limit for " + GlobalVars.EXTENSION_NAME_SHORT + ". "
-								+ "Please register on " + GlobalVars.REGURL + "\nfor a free API key. If you already have an API key, please enter it here.",
-							GlobalVars.EXTENSION_NAME + " API key",
-							JOptionPane.PLAIN_MESSAGE
-						);
-						if (result.length() > 0) {
-							GlobalVars.config.put("apikey", result);
-							GlobalVars.debug("apikey configured after prompt");
+				byte[] httpreq = buildHttpRequest(url.getHost(), url2uri(url), "POST", body);
+				SHR response = parseHttpResponse(GlobalVars.callbacks.makeHttpRequest(url.getHost(), port, ishttps, httpreq));
+
+				if (response.status == 204) {
+					retval = null;
+				}
+				else if (response.status == 429) {
+					if (isset_apikey) {
+						GlobalVars.debug("HTTP request failed: 429 (with API key)");
+						// An API key is set
+						String msg = "Your API key ran out of requests. For bulk\nlookup of stack traces, please contact us.";
+						if ( ! showed429AlertWithApiKey) {
+							// Only alert once; nobody wants to be annoyed by this stuff
+							showed429AlertWithApiKey = true;
+
+							JOptionPane.showMessageDialog(null, msg, "Burp Extension" + GlobalVars.EXTENSION_NAME_SHORT, JOptionPane.ERROR_MESSAGE);
 						}
+						GlobalVars.callbacks.issueAlert(msg);
 					}
 					else {
-						GlobalVars.callbacks.issueAlert("Extension " + GlobalVars.EXTENSION_NAME_SHORT + ": You hit the request limit for the API. "
-							+ "Please register for a free API key to continue, or see our website for the current limit without API key.");
+						GlobalVars.debug("HTTP request failed: 429 (no API key set)");
+						if ( ! showed429Alert) {
+							// Only alert once; nobody wants to be annoyed by this stuff
+							showed429Alert = true;
+
+							// No API key set. Prompt for one and mention where they can get one.
+							String result = JOptionPane.showInputDialog(Config.getBurpFrame(),
+								"You hit the request limit for " + GlobalVars.EXTENSION_NAME_SHORT + ". "
+									+ "Please register on " + GlobalVars.REGURL + "\nfor a free API key. If you already have an API key, please enter it here.",
+								GlobalVars.EXTENSION_NAME + " API key",
+								JOptionPane.PLAIN_MESSAGE
+							);
+							if (result.length() > 0) {
+								GlobalVars.config.put("apikey", result);
+								GlobalVars.debug("apikey configured after prompt");
+								retry = true;
+							}
+						}
+						else {
+							GlobalVars.callbacks.issueAlert("Extension " + GlobalVars.EXTENSION_NAME_SHORT + ": You hit the request limit for the API. "
+								+ "Please register for a free API key to continue, or see our website for the current limit without API key.");
+						}
+					}
+					if (!retry) {
+						return null;
 					}
 				}
-				return null;
-			}
-			else if (response.status == 401 && isset_apikey) {
-				GlobalVars.debug("HTTP request failed: invalid API key (401)");
+				else if (response.status == 401 && isset_apikey) {
+					GlobalVars.debug("HTTP request failed: invalid API key (401)");
 
-				// N.B. we thread this, but due to the thread pool of 1, further requests will just be queued, so we won't get dialogs on top of each other.
-				// Further requests will also automatically use the API key if the user enters one here, even if they were already queued previously.
+					// N.B. we thread this, but due to the thread pool of 1, further requests will just be queued, so we won't get dialogs on top of each other.
+					// Further requests will also automatically use the API key if the user enters one here, even if they were already queued previously.
 
-				String result = JOptionPane.showInputDialog(Config.getBurpFrame(),
-					"Your API key is invalid.\nIf you want to use a different API key, please enter it here.",
-					//GlobalVars.EXTENSION_NAME + " API key invalid",
-					GlobalVars.config.getString("apikey")
-				);
-				if (result != null && result.length() > 0) {
-					GlobalVars.config.put("apikey", result);
+					String result = JOptionPane.showInputDialog(Config.getBurpFrame(),
+						"Your API key is invalid.\nIf you want to use a different API key, please enter it here.",
+						//GlobalVars.EXTENSION_NAME + " API key invalid",
+						GlobalVars.config.getString("apikey")
+					);
+					if (result != null && result.length() > 0) {
+						GlobalVars.config.put("apikey", result);
+						GlobalVars.debug("apikey reconfigured");
+						retry = true;
+					}
+					else {
+						// If they cancelled the dialog or emptied it, override the string so they don't get more of those alerts.
+						GlobalVars.config.put("apikey", "none");
+					}
+
+					if (!retry) {
+						return null;
+					}
+				}
+				else if (response.status != 200) {
+					GlobalVars.callbacks.issueAlert("Extension " + GlobalVars.EXTENSION_NAME + ": HTTP request to back-end failed with status " + Integer.toString(response.status));
+
+					GlobalVars.debug("HTTP request failed with status " + Integer.toString(response.status));
+
+					return null;
 				}
 				else {
-					// If they cancelled the dialog or emptied it, override the string so they don't get more of those alerts.
-					GlobalVars.config.put("apikey", "none");
+					retval = response.body;
 				}
+			} // End of while(retry) loop
 
-				return null;
-			}
-			else if (response.status != 200) {
-				GlobalVars.callbacks.issueAlert("Extension " + GlobalVars.EXTENSION_NAME + ": HTTP request to back-end failed with status " + Integer.toString(response.status));
+			// The code should only reach here if we want to memoize the result. Otherwise, early exit (return) above!
 
-				GlobalVars.debug("HTTP request failed with status " + Integer.toString(response.status));
-
-				return null;
-			}
-			else {
-				retval = response.body;
-			}
-
-			GlobalVars.debug("Result: " + retval.substring(0, 30));
+			GlobalVars.debug("Result: " + (retval == null ? "null" : retval.substring(0, 30)));
 
 			HttpReqMemoization.put(tracedigest, retval);
 
