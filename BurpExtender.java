@@ -240,7 +240,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 				String response = null;
 
 				// Basically the pattern checks /\s[valid class path chars].[more valid class chars]([filename chars].java:1234)/
-				Pattern pattern = Pattern.compile("\\s([a-zA-Z0-9\\.\\$]{1,300}\\.[a-zA-Z0-9\\.\\$]{1,300})\\(([a-zA-Z0-9]{1,300})\\.java:\\d{1,6}\\)");
+				Pattern pattern = Pattern.compile("(\\s|/)([a-zA-Z0-9\\.\\$]{1,300}\\.[a-zA-Z0-9\\.\\$]{1,300})\\(([a-zA-Z0-9]{1,300})\\.java:\\d{1,6}\\)");
 
 				try {
 					response = new String(baseRequestResponse.getResponse(), "UTF-8");
@@ -258,13 +258,12 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 				// Reconstruct the trace (since who knows what might be in between the lines, e.g. "&lt;br&gt;" or "," or "\n")
 				String stacktrace = "";
 				while (matcher.find()) {
-					GlobalVars.debug(matcher.group(0));
-					if ( ! matcher.group(1).contains(".")) {
+					if ( ! matcher.group(2).contains(".")) {
 						// Enforce a dot in the full class name (sanity check)
 						continue;
 					}
-					if ( ! (matcher.group(1).indexOf(matcher.group(2) + "$") >= 2
-							|| matcher.group(1).indexOf(matcher.group(2) + ".") >= 2)) {
+					if ( ! (matcher.group(2).indexOf(matcher.group(3) + "$") >= 2
+							|| matcher.group(2).indexOf(matcher.group(3) + ".") >= 2)) {
 						// TODO is this check too strict?
 						// (It's strict because, if it's too loose, we might submit all sorts of private data to our API)
 						// The filename should occur in the first part, either followed by a dollar or by a dot,
@@ -272,7 +271,8 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 						// there should be at least 1 character and a dot, like "a.test.run(test.java:42)").
 						continue;
 					}
-					stacktrace += matcher.group() + "\n";
+					GlobalVars.debug(" " + matcher.group(0).substring(1));
+					stacktrace += " " + matcher.group(0).substring(1) + "\n";
 				}
 
 				Instant start = Instant.now();
