@@ -20,8 +20,6 @@ import java.util.Set;
 import javax.swing.*;
 
 public class BurpExtender implements IBurpExtender, IHttpListener {
-	private final String RESPONSE_NOMATCH = "No matches found.";
-
 	// Dictionary mapping request body hashes to response bodies
 	private Map<ByteBuffer, String> HttpReqMemoization;
 
@@ -191,9 +189,6 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 			}
 			else {
 				retval = response.body;
-				if (retval.equals(RESPONSE_NOMATCH)) {
-					retval = null;
-				}
 			}
 
 			GlobalVars.debug("Result: " + retval.substring(0, 30));
