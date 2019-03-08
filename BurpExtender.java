@@ -214,8 +214,6 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 
     @Override
 	public void processHttpMessage(int toolFlag, boolean messageIsRequest, IHttpRequestResponse baseRequestResponse) {
-		Instant outerstart = Instant.now();
-
 		if (messageIsRequest) {
 			// TODO maybe also the request instead of only the response?
 			return;
@@ -228,20 +226,26 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 
 		threader.submit(new Runnable() {
 			public void run() {
-				GlobalVars.debug("Started thread...");
+				Matcher matcher = null;
+				String response = null;
 
 				// Basically the pattern checks /\s[valid class path chars].[more valid class chars]([filename chars].java:1234)/
 				Pattern pattern = Pattern.compile("\\s([a-zA-Z0-9\\.\\$]{1,300}\\.[a-zA-Z0-9\\.\\$]{1,300})\\(([a-zA-Z0-9]{1,300})\\.java:\\d{1,6}\\)");
-				Matcher matcher = null;
 
 				try {
-					matcher = pattern.matcher(new String(baseRequestResponse.getResponse(), "UTF-8"));
+					response = new String(baseRequestResponse.getResponse(), "UTF-8");
 				}
 				catch (java.io.UnsupportedEncodingException e) {
 					e.printStackTrace(new java.io.PrintStream(GlobalVars.debug));
 				}
 
-				// Reconstruct the trace (since who knows what might be in between the lines, e.g. "&lt;br&gt;")
+				response = response.replace("\\$", "$");
+				response = java.net.URLDecoder.decode(response);
+				// HTML is not decoded because stack traces do not contain any illegal HTML characters
+
+				matcher = pattern.matcher(response);
+
+				// Reconstruct the trace (since who knows what might be in between the lines, e.g. "&lt;br&gt;" or "," or "\n")
 				String stacktrace = "";
 				while (matcher.find()) {
 					GlobalVars.debug(matcher.group(0));
@@ -253,23 +257,6 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 							|| matcher.group(1).indexOf(matcher.group(2) + ".") >= 2)) {
 						// TODO is this check too strict?
 						// (It's strict because, if it's too loose, we might submit all sorts of private data to our API)
-						/*
-java.lang.NullPointerException
-	at burp.ConfigMenu.run(Config.java:38)
-	at java.desktop/java.awt.event.InvocationEvent.dispatch(InvocationEvent.java:313)
-	at java.desktop/java.awt.EventQueue.dispatchEventImpl(EventQueue.java:770)
-	at java.desktop/java.awt.EventQueue$4.run(EventQueue.java:721)
-	at java.desktop/java.awt.EventQueue$4.run(EventQueue.java:715)
-	at java.base/java.security.AccessController.doPrivileged(Native Method)
-	at java.base/java.security.ProtectionDomain$JavaSecurityAccessImpl.doIntersectionPrivilege(ProtectionDomain.java:85)
-	at java.desktop/java.awt.EventQueue.dispatchEvent(EventQueue.java:740)
-	at java.desktop/java.awt.EventDispatchThread.pumpOneEventForFilters(EventDispatchThread.java:203)
-	at java.desktop/java.awt.EventDispatchThread.pumpEventsForFilter(EventDispatchThread.java:124)
-	at java.desktop/java.awt.EventDispatchThread.pumpEventsForHierarchy(EventDispatchThread.java:113)
-	at java.desktop/java.awt.EventDispatchThread.pumpEvents(EventDispatchThread.java:109)
-	at java.desktop/java.awt.EventDispatchThread.pumpEvents(EventDispatchThread.java:101)
-	at java.desktop/java.awt.EventDispatchThread.run(EventDispatchThread.java:90)
-						 */
 						// The filename should occur in the first part, either followed by a dollar or by a dot,
 						// and it usually does not start with that (so match from position 2 onwards, because
 						// there should be at least 1 character and a dot, like "a.test.run(test.java:42)").
@@ -314,8 +301,6 @@ java.lang.NullPointerException
 				GlobalVars.callbacks.addScanIssue(issue);
 			}
 		});
-
-		GlobalVars.debug("Burp callback handled in " + String.valueOf(Duration.between(outerstart, Instant.now()).toMillis()) + "ms");
 	}
 }
 
