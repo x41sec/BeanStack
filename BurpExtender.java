@@ -239,7 +239,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 					e.printStackTrace(new java.io.PrintStream(GlobalVars.debug));
 				}
 
-				response = response.replace("\\$", "$");
+				response = response.replace("\\$", "$").replace("\\/", "/").replace("&nbsp;", " ");
 				response = java.net.URLDecoder.decode(response);
 				// HTML is not decoded because stack traces do not contain any illegal HTML characters
 
