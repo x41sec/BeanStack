@@ -153,7 +153,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 								JOptionPane.PLAIN_MESSAGE
 							);
 							if (result.length() > 0) {
-								GlobalVars.config.put("apikey", result);
+								GlobalVars.config.putAndSave("apikey", result);
 								GlobalVars.debug("apikey configured after prompt");
 								retry = true;
 							}
@@ -179,13 +179,13 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 						GlobalVars.config.getString("apikey")
 					);
 					if (result != null && result.length() > 0) {
-						GlobalVars.config.put("apikey", result);
+						GlobalVars.config.putAndSave("apikey", result);
 						GlobalVars.debug("apikey reconfigured");
 						retry = true;
 					}
 					else {
 						// If they cancelled the dialog or emptied it, override the string so they don't get more of those alerts.
-						GlobalVars.config.put("apikey", "none");
+						GlobalVars.config.putAndSave("apikey", "none");
 					}
 
 					if (!retry) {

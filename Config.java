@@ -108,9 +108,14 @@ public class Config {
         settings.put(key, value);
     }
 
-    public void put(String key, Object value) {
+    private void put(String key, Object value) {
         settings.put(key, encode(value));
     }
+
+	public void putAndSave(String key, Object value) {
+        settings.put(key, encode(value));
+		GlobalVars.callbacks.saveExtensionSetting(key, encode(value));
+	}
 
     public String getString(String key) {
         String decoded = settings.get(key);
