@@ -18,6 +18,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.Set;
 import javax.swing.*;
+import com.cedarsoftware.util.io.JsonReader;
 
 public class BurpExtender implements IBurpExtender, IHttpListener {
 	// Dictionary mapping request body hashes to response bodies
@@ -33,6 +34,8 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 
 	private boolean showed429AlertWithApiKey = false;
 	private boolean showed429Alert = false;
+
+	final String htmlindent = "&nbsp;&nbsp;&nbsp;";
 
     @Override
     public void registerExtenderCallbacks(final IBurpExtenderCallbacks callbacks) {
@@ -60,7 +63,19 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 			}
 		}
 		GlobalVars.debug("Found " + Integer.toString(AlreadyFingerprinted.size()) + " fingerprints in already-existing issues (to avoid creating duplicate issues).");
+
+		for (float i = 0f; i < 10.1f; i += 0.1f) {
+			GlobalVars.debug(i + " " + cvssToBurpSeverity(i));
+		}
     }
+
+	private String cvssToBurpSeverity(float cvss) {
+		// Based on https://www.first.org/cvss/specification-document#5-Qualitative-Severity-Rating-Scale
+		if (cvss < 4.0f) return "Informational";
+		if (cvss < 7.0f) return "Low";
+		if (cvss < 9.0f) return "Medium";
+		return "High";
+	}
 
 	private ByteBuffer hashScanIssue(IScanIssue si) {
 		return ByteBuffer.wrap(blake2b.digest((si.getUrl().toString() + "\n" + si.getIssueDetail()).getBytes()));
@@ -282,18 +297,117 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 
 				GlobalVars.debug("checktrace() returned in " + String.valueOf(Duration.between(start, Instant.now()).toMillis()) + "ms");
 
-				// Either some error or no results
+				// Either some error (already handled) or no results
 				if (result == null) {
 					return;
 				}
 
+				Map args = new HashMap();
+				args.put(JsonReader.USE_MAPS, true);
+				Map<String,Object> products = (Map<String,Object>)JsonReader.jsonToJava(result, args);
+
+				String issuetext = "";
+				String comma = "";
+
+				boolean is_uncertain_cve;
+				boolean any_uncertain_cves = false;
+				boolean any_certain_cves = false;
+				float maxcvss = 0;
+				int i = 0;
+
+				issuetext += String.format("Found %d product%s:<br>", products.size(), products.size() == 1 ? "" : "s");
+				for (Map.Entry<String,Object> product : products.entrySet()) {
+					i += 1;
+					issuetext += String.format("%d. %s<br>" + htmlindent, i, product.getKey());
+
+					Map<String,Object> o = (Map<String,Object>)product.getValue();
+					Object[] versions = (Object[])o.get("versions");
+					if (versions.length == 1) {
+						issuetext += "version: " + versions[0].toString();
+					}
+					else {
+						issuetext += "matching versions: ";
+						comma = "";
+						for (Object ver : versions) {
+							issuetext += comma + ver.toString();
+							comma = ", ";
+						}
+					}
+
+					if (o.containsKey("cves")) {
+						Object[] cves = (Object[])o.get("cves");
+						if (cves.length > 0) {
+							issuetext += "<br>" + htmlindent + "CVE(s): ";
+
+							comma = "";
+							for (Object cveobj : cves) {
+								Map<String,Object> cvemap = (Map<String,Object>)cveobj;
+								Map<String,Map> nistobj = (Map<String,Map>)cvemap.get("data");
+								Map<String,Object> cverootobj = (Map<String,Object>)nistobj.get("cve");
+								Map<String,String> mdobj = (Map<String,String>)cverootobj.get("CVE_data_meta");
+
+								String cveid = mdobj.get("ID");
+								is_uncertain_cve = Integer.parseInt(cvemap.get("vermatch").toString()) != 0;
+								any_uncertain_cves = is_uncertain_cve ? is_uncertain_cve : any_uncertain_cves;
+								any_certain_cves = is_uncertain_cve ? any_certain_cves : ! is_uncertain_cve;
+								issuetext += comma + "<a href='" + GlobalVars.CVEURL + cveid + "'>" + cveid + "</a>" + (is_uncertain_cve ? "*" : "");
+								comma = ", ";
+
+								Map<String,Object> impactmap = (Map<String,Object>)nistobj.get("impact");
+								if (impactmap.size() > 0) {
+									String cvssversion = impactmap.containsKey("baseMetricV3") ? "3" : "2";
+									Map<String,Map> cvssmap = (Map<String,Map>)impactmap.get("baseMetricV" + cvssversion);
+									Map<String,Object> scoremap = (Map<String,Object>)cvssmap.get("cvssV" + cvssversion);
+									issuetext += " (" + scoremap.get("baseScore").toString() + ")";
+									maxcvss = Math.max(Float.parseFloat(scoremap.get("baseScore").toString()), maxcvss);
+								}
+							}
+							issuetext += "<br>";
+						}
+					}
+					else {
+						issuetext += " (no CVEs known)<br>";
+					}
+				}
+
+				if (any_uncertain_cves) {
+					issuetext += "<br>* These CVEs apply to some versions of the product and may not apply to the version(s) found. We can only do exact version matches and not range "
+						+ "comparisons because the version scheme is unknown (e.g. it could be that 1.81 is patch release 1 of version 1.8, or it could be that 1.81 comes after 1.9).";
+				}
+
+				String certainty;
+				if (any_uncertain_cves || any_certain_cves) {
+					// If there are CVEs at all
+					if ( ! any_uncertain_cves) {
+						// Since the severity is determined by the highest CVSS score, and since that
+						// CVSS score might belong to an uncertain CVE (one that might not apply to
+						// the product we found, but we don't know because we can't do version
+						// comparisons without knowing the versioning scheme), we can only be
+						// "certain" if there are no uncertain CVEs.
+						certainty = "Certain";
+					}
+					else if (any_certain_cves) {
+						certainty = "Firm";
+					}
+					else {
+						// Not a single one was an exact version match, so this is fairly uncertain
+						certainty = "Tentative";
+					}
+				}
+				else {
+					// We didn't find any CVEs, so return the standard certainty
+					certainty = "Certain";
+				}
+
 				IScanIssue issue = new CustomScanIssue(
-							baseRequestResponse.getHttpService(),
-							GlobalVars.callbacks.getHelpers().analyzeRequest(baseRequestResponse).getUrl(),
-							new IHttpRequestResponse[] { baseRequestResponse },
-							GlobalVars.config.getString("issuetitle"),
-							result,
-							"Information");
+					baseRequestResponse.getHttpService(),
+					GlobalVars.callbacks.getHelpers().analyzeRequest(baseRequestResponse).getUrl(),
+					new IHttpRequestResponse[] { baseRequestResponse },
+					GlobalVars.config.getString("issuetitle"),
+					issuetext,
+					cvssToBurpSeverity(maxcvss),
+					certainty
+				);
 
 				ByteBuffer hash = hashScanIssue(issue);
 
@@ -331,6 +445,7 @@ class CustomScanIssue implements IScanIssue {
     private String name;
     private String detail;
     private String severity;
+	private String confidence;
 
     public CustomScanIssue(
             IHttpService httpService,
@@ -338,13 +453,15 @@ class CustomScanIssue implements IScanIssue {
             IHttpRequestResponse[] httpMessages,
             String name,
             String detail,
-            String severity) {
+            String severity,
+			String confidence) {
         this.httpService = httpService;
         this.url = url;
         this.httpMessages = httpMessages;
         this.name = name;
         this.detail = detail;
         this.severity = severity;
+		this.confidence = confidence;
     }
 
     @Override
@@ -369,7 +486,7 @@ class CustomScanIssue implements IScanIssue {
 
     @Override
     public String getConfidence() {
-        return "Firm"; // TODO Would we say the confidence is complete? It can be Complete, Firm, or Tentative.
+        return confidence;
     }
 
     @Override
