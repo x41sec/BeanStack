@@ -63,10 +63,6 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 			}
 		}
 		GlobalVars.debug("Found " + Integer.toString(AlreadyFingerprinted.size()) + " fingerprints in already-existing issues (to avoid creating duplicate issues).");
-
-		for (float i = 0f; i < 10.1f; i += 0.1f) {
-			GlobalVars.debug(i + " " + cvssToBurpSeverity(i));
-		}
     }
 
 	private String cvssToBurpSeverity(float cvss) {
