@@ -100,6 +100,17 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 			+ (url.getQuery() != null ? url.getQuery() : "");
 	}
 
+	private boolean isBlacklisted(String stacktraceline) {
+		String[] blacklisted_class_prefixes = GlobalVars.config.getString("classblacklist").split(",");
+		for (String blacklisted_class_prefix : blacklisted_class_prefixes) {
+			if (stacktraceline.contains(blacklisted_class_prefix)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	private String checktrace(String stacktrace) {
 		String retval = null; // Return value
 
@@ -282,8 +293,14 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 						// there should be at least 1 character and a dot, like "a.test.run(test.java:42)").
 						continue;
 					}
-					GlobalVars.debug(" " + matcher.group(0).substring(1));
-					stacktrace += " " + matcher.group(0).substring(1) + "\n";
+					String line = matcher.group(0).substring(1);
+					if ( ! isBlacklisted(line)) {
+						GlobalVars.debug(" " + line);
+						stacktrace += " " + line + "\n";
+					}
+					else {
+						GlobalVars.debug(String.format("[filtered out blacklisted class: %s]", matcher.group(2)));
+					}
 				}
 
 				Instant start = Instant.now();
