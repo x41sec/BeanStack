@@ -316,8 +316,8 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 					i += 1;
 					issuetext += String.format("%d. %s<br>" + htmlindent, i, product.getKey());
 
-					Map<String,Object> o = (Map<String,Object>)product.getValue();
-					Object[] versions = (Object[])o.get("versions");
+					Map<String,Object> productmap = (Map<String,Object>)product.getValue();
+					Object[] versions = (Object[])productmap.get("versions");
 					if (versions.length == 1) {
 						issuetext += "version: " + versions[0].toString();
 					}
@@ -330,8 +330,8 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 						}
 					}
 
-					if (o.containsKey("cves")) {
-						Object[] cves = (Object[])o.get("cves");
+					if (productmap.containsKey("cves")) {
+						Object[] cves = (Object[])productmap.get("cves");
 						if (cves.length > 0) {
 							issuetext += "<br>" + htmlindent + "CVE(s): ";
 
@@ -339,21 +339,18 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 							for (Object cveobj : cves) {
 								Map<String,Object> cvemap = (Map<String,Object>)cveobj;
 								Map<String,Map> nistobj = (Map<String,Map>)cvemap.get("data");
-								Map<String,Object> cverootobj = (Map<String,Object>)nistobj.get("cve");
-								Map<String,String> mdobj = (Map<String,String>)cverootobj.get("CVE_data_meta");
 
-								String cveid = mdobj.get("ID");
+								String cveid = (((Map<String,Map<String,String>>)nistobj.get("cve")).get("CVE_data_meta")).get("ID");
 								is_uncertain_cve = Integer.parseInt(cvemap.get("vermatch").toString()) != 0;
 								any_uncertain_cves = is_uncertain_cve ? is_uncertain_cve : any_uncertain_cves;
 								any_certain_cves = is_uncertain_cve ? any_certain_cves : ! is_uncertain_cve;
 								issuetext += comma + "<a href='" + GlobalVars.CVEURL + cveid + "'>" + cveid + "</a>" + (is_uncertain_cve ? "*" : "");
 								comma = ", ";
 
-								Map<String,Object> impactmap = (Map<String,Object>)nistobj.get("impact");
+								Map<String,Map> impactmap = nistobj.get("impact");
 								if (impactmap.size() > 0) {
 									String cvssversion = impactmap.containsKey("baseMetricV3") ? "3" : "2";
-									Map<String,Map> cvssmap = (Map<String,Map>)impactmap.get("baseMetricV" + cvssversion);
-									Map<String,Object> scoremap = (Map<String,Object>)cvssmap.get("cvssV" + cvssversion);
+									Map<String,Object> scoremap = ((Map<String,Map<String,Object>>)impactmap.get("baseMetricV" + cvssversion)).get("cvssV" + cvssversion);
 									issuetext += " (" + scoremap.get("baseScore").toString() + ")";
 									maxcvss = Math.max(Float.parseFloat(scoremap.get("baseScore").toString()), maxcvss);
 								}
