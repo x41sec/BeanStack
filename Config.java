@@ -22,7 +22,7 @@ import java.util.List;
 import burp.GlobalVars;
 import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
-
+import java.awt.Cursor;
 
 
 // ###########################################################################
@@ -35,8 +35,10 @@ public class Config {
 
     public Config() {
         settings = new LinkedHashMap<>();
+		// These put()s determine the order shown on the settings screen
 		put("enable", true);
 		put("apikey", "none");
+		put("classblacklist", "");
 		put("debug", true);
 		put("logdups", false);
 		put("issuetitle", "Stack Trace Fingerprint Found");
@@ -49,6 +51,7 @@ public class Config {
 		readableNames.put("debug", "Print Debug Messages to Stdout");
 		readableNames.put("logdups", "Log Duplicates");
 		readableNames.put("apikey", "API Key");
+		readableNames.put("classblacklist", "Blacklisted Class Prefixes");
 
         for (String key: settings.keySet()) {
             //callbacks.saveExtensionSetting(key, null); // purge saved settings
@@ -155,8 +158,22 @@ public class Config {
         JPanel panel = new JPanel();
         panel.setLayout(new GridLayout(0, 2));
 
-		panel.add(new JLabel("Settings for " + GlobalVars.EXTENSION_NAME_SHORT + "."));
-		panel.add(new JLabel(""));
+		JLabel lbl = new JLabel("<html>" + GlobalVars.EXTENSION_NAME_SHORT + " settings (<a href=''>documentation</a>)</html>");
+		lbl.setCursor(new Cursor(Cursor.HAND_CURSOR));
+		panel.add(lbl);
+
+		lbl.addMouseListener(new java.awt.event.MouseAdapter() {
+			@Override public void mousePressed(java.awt.event.MouseEvent ev) {
+				try {
+					java.awt.Desktop.getDesktop().browse(new java.net.URI(GlobalVars.SETTINGDOCURL));
+				}
+				catch (IOException|java.net.URISyntaxException e) {
+					e.printStackTrace();
+				}
+			}
+		});
+
+		panel.add(new JLabel());
 
         HashMap<String, Object> configured = new HashMap<>();
 

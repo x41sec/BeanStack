@@ -13,6 +13,7 @@ class GlobalVars {
 	public static final String EXTENSION_NAME_SHORT = "BeanStack";
 	public static final String VERSION = "0.1.0";
 	public static final String REGURL = "https://beanstack.io";
+	public static final String SETTINGDOCURL = "https://beanstack.io/settings.html";
 	public static final String CVEURL = "https://nvd.nist.gov/vuln/detail/";
 
 	public static IBurpExtenderCallbacks callbacks;
