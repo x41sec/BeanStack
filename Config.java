@@ -35,23 +35,24 @@ public class Config {
 
     public Config() {
         settings = new LinkedHashMap<>();
-		// These put()s determine the order shown on the settings screen
-		put("enable", true);
-		put("apikey", "none");
-		put("classblacklist", "");
-		put("debug", true);
-		put("logdups", false);
-		put("issuetitle", "Stack Trace Fingerprint Found");
-		put("apiurl", "http://beanstack.io/api/");
+        // These put()s determine the order shown on the settings screen
+        put("enable", true);
+        put("apikey", "none");
+        put("classblacklist", "");
+        put("debug", true);
+        put("logdups", false);
+        put("issuetitle", "Stack Trace Fingerprint Found");
+        put("apiurl", "http://beanstack.io/api/");
 
+        // NOTE: when editing these names, also update the documentation!
         readableNames = new LinkedHashMap<>();
-		readableNames.put("enable", "Enable Lookups");
-		readableNames.put("apiurl", "API URL");
-		readableNames.put("issuetitle", "Issue Title");
-		readableNames.put("debug", "Print Debug Messages to Stdout");
-		readableNames.put("logdups", "Log Duplicates");
-		readableNames.put("apikey", "API Key");
-		readableNames.put("classblacklist", "Blacklisted Class Prefixes");
+        readableNames.put("enable", "Enable Lookups");
+        readableNames.put("apiurl", "API URL");
+        readableNames.put("issuetitle", "Issue Title");
+        readableNames.put("debug", "Print Debug Messages to Stdout");
+        readableNames.put("logdups", "Log Duplicates");
+        readableNames.put("apikey", "API Key");
+        readableNames.put("classblacklist", "Blacklisted Class Prefixes");
 
         for (String key: settings.keySet()) {
             //callbacks.saveExtensionSetting(key, null); // purge saved settings
@@ -75,7 +76,7 @@ public class Config {
     }
 
     void printSettings() {
-		GlobalVars.debug("printSettings():");
+        GlobalVars.debug("printSettings():");
         for(String key: settings.keySet()) {
             GlobalVars.debug("  - " + getType(key) + " " + key + " = " + settings.get(key));
         }
@@ -115,10 +116,10 @@ public class Config {
         settings.put(key, encode(value));
     }
 
-	public void putAndSave(String key, Object value) {
+    public void putAndSave(String key, Object value) {
         settings.put(key, encode(value));
-		GlobalVars.callbacks.saveExtensionSetting(key, encode(value));
-	}
+        GlobalVars.callbacks.saveExtensionSetting(key, encode(value));
+    }
 
     public String getString(String key) {
         String decoded = settings.get(key);
@@ -158,22 +159,22 @@ public class Config {
         JPanel panel = new JPanel();
         panel.setLayout(new GridLayout(0, 2));
 
-		JLabel lbl = new JLabel("<html>" + GlobalVars.EXTENSION_NAME_SHORT + " settings (<a href=''>documentation</a>)</html>");
-		lbl.setCursor(new Cursor(Cursor.HAND_CURSOR));
-		panel.add(lbl);
+        JLabel lbl = new JLabel("<html>" + GlobalVars.EXTENSION_NAME_SHORT + " settings (<a href=''>documentation</a>)</html>");
+        lbl.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        panel.add(lbl);
 
-		lbl.addMouseListener(new java.awt.event.MouseAdapter() {
-			@Override public void mousePressed(java.awt.event.MouseEvent ev) {
-				try {
-					java.awt.Desktop.getDesktop().browse(new java.net.URI(GlobalVars.SETTINGDOCURL));
-				}
-				catch (IOException|java.net.URISyntaxException e) {
-					e.printStackTrace();
-				}
-			}
-		});
+        lbl.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override public void mousePressed(java.awt.event.MouseEvent ev) {
+                try {
+                    java.awt.Desktop.getDesktop().browse(new java.net.URI(GlobalVars.SETTINGDOCURL));
+                }
+                catch (IOException|java.net.URISyntaxException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
 
-		panel.add(new JLabel());
+        panel.add(new JLabel());
 
         HashMap<String, Object> configured = new HashMap<>();
 
@@ -212,20 +213,20 @@ public class Config {
                 }
                 else {
                     val = ((JTextField) val).getText();
-					if (key.equals("apiurl") && ! ((String)val).endsWith("/")) {
-						val += "/";
-					}
+                    if (key.equals("apiurl") && ! ((String)val).endsWith("/")) {
+                        val += "/";
+                    }
                 }
                 put(key, val);
                 GlobalVars.callbacks.saveExtensionSetting(key, encode(val));
             }
 
-			GlobalVars.debug("Saved settings.");
-			printSettings();
+            GlobalVars.debug("Saved settings.");
+            printSettings();
         }
-		else {
-			GlobalVars.debug("Settings cancelled.");
-		}
+        else {
+            GlobalVars.debug("Settings cancelled.");
+        }
     }
 }
 
@@ -235,20 +236,20 @@ public class Config {
 class ContextMenuSettingsOptionAdder implements IContextMenuFactory, ActionListener {
     @Override
     public List<JMenuItem> createMenuItems(IContextMenuInvocation invocation) {
-		ContextMenuSettingsOptionAdder outer = this;
-		// 16 is an undocumented magic number that indicates it was invoked
-		// from the Issues list in the Target tab. The place where our events
-		// are logged, so that seemed a logical place for the options button.
-		// The number was reverse engineered using the highly advanced method
-		// of println()ing getToolFlag and right clicking the desired place.
-		return invocation.getToolFlag() == 16 ? new ArrayList<JMenuItem>() {{
-			add(new JMenuItem(GlobalVars.EXTENSION_NAME_SHORT + " settings") {{
-				addActionListener(outer);
-			}});
-		}} : null;
+        ContextMenuSettingsOptionAdder outer = this;
+        // 16 is an undocumented magic number that indicates it was invoked
+        // from the Issues list in the Target tab. The place where our events
+        // are logged, so that seemed a logical place for the options button.
+        // The number was reverse engineered using the highly advanced method
+        // of println()ing getToolFlag and right clicking the desired place.
+        return invocation.getToolFlag() == 16 ? new ArrayList<JMenuItem>() {{
+            add(new JMenuItem(GlobalVars.EXTENSION_NAME_SHORT + " settings") {{
+                addActionListener(outer);
+            }});
+        }} : null;
     }
 
-	public void actionPerformed(ActionEvent e) {
+    public void actionPerformed(ActionEvent e) {
         SwingUtilities.invokeLater(new Runnable() {
             public void run(){
                 GlobalVars.config.showSettings();
