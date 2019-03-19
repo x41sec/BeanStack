@@ -136,7 +136,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 				String body = "";
 				if (isset_apikey) {
 					body += "apikey=";
-					body += GlobalVars.config.getString("apikey");
+					body += GlobalVars.config.getString("apikey").trim();
 					body += "&";
 				}
 				body += "trace=";
