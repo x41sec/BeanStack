@@ -2,6 +2,7 @@ package burp;
 
 import burp.Blake2b;
 import burp.Config;
+import com.cedarsoftware.util.io.JsonReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.ByteBuffer;
@@ -18,7 +19,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.Set;
 import javax.swing.*;
-import com.cedarsoftware.util.io.JsonReader;
 
 public class BurpExtender implements IBurpExtender, IHttpListener {
 	// Dictionary mapping request body hashes to response bodies
