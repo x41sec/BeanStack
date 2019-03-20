@@ -42,7 +42,7 @@ public class Config {
         put("debug", true);
         put("logdups", false);
         put("issuetitle", "Stack Trace Fingerprint Found");
-        put("apiurl", "http://beanstack.io/api/");
+        put("apiurl", "https://beanstack.io/api/");
 
         // NOTE: when editing these names, also update the documentation!
         readableNames = new LinkedHashMap<>();
