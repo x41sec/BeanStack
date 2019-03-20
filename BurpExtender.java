@@ -103,6 +103,9 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 	private boolean isBlacklisted(String stacktraceline) {
 		String[] blacklisted_class_prefixes = GlobalVars.config.getString("classblacklist").split(",");
 		for (String blacklisted_class_prefix : blacklisted_class_prefixes) {
+			if (blacklisted_class_prefix.length() < 3) {
+				continue;
+			}
 			if (stacktraceline.contains(blacklisted_class_prefix)) {
 				return true;
 			}
@@ -157,7 +160,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 							// Only alert once; nobody wants to be annoyed by this stuff
 							showed429AlertWithApiKey = true;
 
-							JOptionPane.showMessageDialog(null, msg, "Burp Extension" + GlobalVars.EXTENSION_NAME_SHORT, JOptionPane.ERROR_MESSAGE);
+							JOptionPane.showMessageDialog(null, msg, "Burp Extension " + GlobalVars.EXTENSION_NAME, JOptionPane.ERROR_MESSAGE);
 						}
 						GlobalVars.callbacks.issueAlert(msg);
 					}
@@ -169,7 +172,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 
 							// No API key set. Prompt for one and mention where they can get one.
 							String result = JOptionPane.showInputDialog(Config.getBurpFrame(),
-								"You hit the request limit for " + GlobalVars.EXTENSION_NAME_SHORT + ". "
+								"You have reached the request limit for " + GlobalVars.EXTENSION_NAME_SHORT + ". "
 									+ "Please register on " + GlobalVars.REGURL + "\nfor a free API key. If you already have an API key, please enter it here.",
 								GlobalVars.EXTENSION_NAME + " API key",
 								JOptionPane.PLAIN_MESSAGE
@@ -182,7 +185,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 						}
 						else {
 							GlobalVars.callbacks.issueAlert("Extension " + GlobalVars.EXTENSION_NAME_SHORT + ": You hit the request limit for the API. "
-								+ "Please register for a free API key to continue, or see our website for the current limit without API key.");
+								+ "To continue, please register for a free API key at " + GlobalVars.REGURL + ", or slow the rate of requests.");
 						}
 					}
 					if (!retry) {
@@ -195,9 +198,12 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 					// N.B. we thread this, but due to the thread pool of 1, further requests will just be queued, so we won't get dialogs on top of each other.
 					// Further requests will also automatically use the API key if the user enters one here, even if they were already queued previously.
 
-					String result = JOptionPane.showInputDialog(Config.getBurpFrame(),
+					String result = (String)JOptionPane.showInputDialog(Config.getBurpFrame(),
 						"Your API key is invalid.\nIf you want to use a different API key, please enter it here.",
-						//GlobalVars.EXTENSION_NAME + " API key invalid",
+						GlobalVars.EXTENSION_NAME + " API key invalid",
+						JOptionPane.PLAIN_MESSAGE,
+						null,
+						null,
 						GlobalVars.config.getString("apikey")
 					);
 					if (result != null && result.length() > 0) {
