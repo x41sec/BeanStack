@@ -385,12 +385,27 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 								issuetext += comma + "<a href='" + GlobalVars.CVEURL + cveid + "'>" + cveid + "</a>" + (is_uncertain_cve ? "*" : "");
 								comma = ", ";
 
+								String score = "(not given)";
 								Map<String,Map> impactmap = nistobj.get("impact");
 								if (impactmap.size() > 0) {
 									String cvssversion = impactmap.containsKey("baseMetricV3") ? "3" : "2";
 									Map<String,Object> scoremap = ((Map<String,Map<String,Object>>)impactmap.get("baseMetricV" + cvssversion)).get("cvssV" + cvssversion);
-									issuetext += " (" + scoremap.get("baseScore").toString() + ")";
-									maxcvss = Math.max(Float.parseFloat(scoremap.get("baseScore").toString()), maxcvss);
+									score = scoremap.get("baseScore").toString();
+									issuetext += " (" + score + ")";
+									maxcvss = Math.max(Float.parseFloat(score), maxcvss);
+								}
+
+								if (GlobalVars.config.getBoolean("issuepercve") && ! is_uncertain_cve) {
+									GlobalVars.debug(String.format("Logging separate issue for %s", cveid));
+									GlobalVars.callbacks.addScanIssue(new CustomScanIssue(
+										baseRequestResponse.getHttpService(),
+										GlobalVars.callbacks.getHelpers().analyzeRequest(baseRequestResponse).getUrl(),
+										new IHttpRequestResponse[] { baseRequestResponse },
+										String.format("%s (%s)", GlobalVars.config.getString("issuetitle"), cveid),
+										String.format("In the stack trace, %s with CVSS score %s was discovered. It is present in %s.", cveid, score, product.getKey()),
+										cvssToBurpSeverity(Float.parseFloat(score)),
+										"Firm"
+									));
 								}
 							}
 							issuetext += "<br>";

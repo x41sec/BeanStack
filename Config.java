@@ -36,9 +36,11 @@ public class Config {
     public Config() {
         settings = new LinkedHashMap<>();
         // These put()s determine the order shown on the settings screen
+		// Note that the default values are documented on the website, so update accordingly
         put("enable", true);
         put("apikey", "none");
         put("classblacklist", "");
+		put("issuepercve", false);
         put("debug", true);
         put("logdups", false);
         put("issuetitle", "Stack Trace Fingerprint Found");
@@ -53,6 +55,7 @@ public class Config {
         readableNames.put("logdups", "Log Duplicates");
         readableNames.put("apikey", "API Key");
         readableNames.put("classblacklist", "Blacklisted Class Prefixes");
+		readableNames.put("issuepercve", "Create an issue for each CVE");
 
         for (String key: settings.keySet()) {
             //callbacks.saveExtensionSetting(key, null); // purge saved settings
