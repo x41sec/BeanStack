@@ -36,6 +36,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 	private boolean showed429Alert = false;
 
 	final String htmlindent = "&nbsp;&nbsp;&nbsp;";
+	final String CRLF = "\r\n";
 
     @Override
     public void registerExtenderCallbacks(final IBurpExtenderCallbacks callbacks) {
@@ -67,7 +68,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 
 	private String cvssToBurpSeverity(float cvss) {
 		// Based on https://www.first.org/cvss/specification-document#5-Qualitative-Severity-Rating-Scale
-		if (cvss < 4.0f) return "Informational";
+		if (cvss < 4.0f) return "Information";
 		if (cvss < 7.0f) return "Low";
 		if (cvss < 9.0f) return "Medium";
 		return "High";
@@ -78,21 +79,29 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 	}
 
 	private byte[] buildHttpRequest(String host, String URI, String method, String body) {
-		String headers = "User-Agent: " + GlobalVars.USER_AGENT + "/" + GlobalVars.VERSION + "\r\n";
+		String headers = "";
+		headers += "User-Agent: " + GlobalVars.USER_AGENT + "/" + GlobalVars.VERSION + CRLF;
+		headers += "Authorization: Basic ZnJpZW5kOmVudGVyICUp\r\n";
 		if (method.equals("POST")) {
 			headers += "Content-Type: application/x-www-form-urlencoded\r\n";
-			headers += "Content-Length: " + body.length() + "\r\n";
+			headers += "Content-Length: " + body.length() + CRLF;
 		}
-		return (method + " " + URI + " HTTP/1.1\r\nHost: " + host + "\r\n" + headers + "\r\n" + body).getBytes();
+		return (method + " " + URI + " HTTP/1.1\r\nHost: " + host + CRLF + headers + CRLF + body).getBytes();
 	}
 
 	private SHR parseHttpResponse(byte[] response) {
 		String[] headersbody = new String(response).split("\r\n\r\n", 2);
-		String[] headers = headersbody[0].split("\r\n");
+		String[] headers = headersbody[0].split(CRLF);
+		Map<String,String> headermap = new HashMap<>();
+		for (String header : headers) {
+			if (header == headers[0]) continue; // Skip first: that's the status line
+			String[] nameval = header.split(":", 2);
+			headermap.put(nameval[0].toLowerCase().trim(), nameval[1].trim());
+		}
 		String[] methodcodestatus = headers[0].split(" ", 3);
 
 		int status = Integer.parseInt(methodcodestatus[1]);
-		return new SHR(status, headersbody[1]);
+		return new SHR(status, headermap, headersbody[1]);
 	}
 
 	private String url2uri(URL url) {
@@ -124,15 +133,15 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 				return HttpReqMemoization.get(tracedigest);
 			}
 
-			URL url = new URL(GlobalVars.config.getString("apiurl"));
-			boolean ishttps = url.getProtocol().toLowerCase().equals("https");
-			int port = url.getPort() == -1 ? url.getDefaultPort() : url.getPort();
-
 			boolean retry = true;
 			while (retry) {
 				retry = false;
 
-				GlobalVars.debug("Submitting a trace: " + stacktrace.substring(0, 50));
+				GlobalVars.debug(String.format("Submitting a trace to %s: %s", GlobalVars.config.getString("apiurl"), stacktrace.substring(0, 50)));
+
+				URL url = new URL(GlobalVars.config.getString("apiurl"));
+				boolean ishttps = url.getProtocol().toLowerCase().equals("https");
+				int port = url.getPort() == -1 ? url.getDefaultPort() : url.getPort();
 
 				boolean isset_apikey = GlobalVars.config.getString("apikey").length() > 4;
 
@@ -150,6 +159,12 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 
 				if (response.status == 204) {
 					retval = null;
+				}
+				else if (response.status == 301 && response.headers.containsKey("location") && response.headers.get("location").equals(GlobalVars.config.getString("apiurl").replace("http://", "https://"))) {
+					// Oblige an HTTP -> HTTPS redirect (but nothing else)
+					GlobalVars.debug(String.format("Got a 301, updating apiurl setting from <%s> to <%s>.", GlobalVars.config.getString("apiurl"), response.headers.get("location")));
+					GlobalVars.config.putAndSave("apiurl", response.headers.get("location"));
+					retry = true;
 				}
 				else if (response.status == 429) {
 					if (isset_apikey) {
@@ -234,7 +249,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 
 			// The code should only reach here if we want to memoize the result. Otherwise, early exit (return) above!
 
-			GlobalVars.debug("Result: " + (retval == null ? "null" : retval.substring(0, 30)));
+			GlobalVars.debug("Result: " + (retval == null ? "null" : retval.substring(0, 150)));
 
 			HttpReqMemoization.put(tracedigest, retval);
 
@@ -382,7 +397,9 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 						}
 					}
 					else {
-						issuetext += " (no CVEs known)<br>";
+						if (GlobalVars.config.getString("apikey").length() > 4) {
+							issuetext += " (no CVEs known)<br>";
+						}
 					}
 				}
 
@@ -447,8 +464,10 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 class SHR {
 	public final int status;
 	public final String body;
-	public SHR(int status, String body) {
+	public final Map<String,String> headers;
+	public SHR(int status, Map<String,String> headers, String body) {
 		this.status = status;
+		this.headers = headers;
 		this.body = body;
 	}
 }
