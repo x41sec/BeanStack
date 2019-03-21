@@ -22,6 +22,7 @@ class GlobalVars {
 
 	public static void debug(Object o) {
 		if (GlobalVars.config.getBoolean("debug")) {
+			GlobalVars.debug.print(new java.text.SimpleDateFormat("HH:mm:ss").format(java.util.Calendar.getInstance().getTime()) + " ");
 			GlobalVars.debug.println(o);
 		}
 	}
