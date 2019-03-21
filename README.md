@@ -1,38 +1,37 @@
-# Java Fingerprinter
+# X41 BeanStack (beta)
 
-### Setup
+*Java Fingerprinting using Stack Traces*
+
+<https://beanstack.io>
+
+
+### Setup Build Environment
 
     apt install gradle
 
+
 ### Build
 
-    gradle build
+    make
 
-### Install
 
-Note that you need to modify burp's launcher to use a modern jre, because your
-build probably produced a class file too new for Burp's default jre to load.
+### Install the Burp Extension
 
-- Launch Burp
-- Open some project or a temporary one maybe
-- Extender tab
-- Extensions subtab
-- Click the Add button
-- Select `build/libs/beanstack.jar`
-- next next yes finish close
+Either download the release or make sure you have jar file
+`build/libs/beanstack.jar`.
 
-### Use
+1. Launch Burp
+1. Create a temporary project or select a new/existing one
+1. Extender tab
+1. Extensions subtab
+1. Click the Add button
+1. Select the `jar` file
+1. Leave all options as default, click "next", and finish the wizard
 
-Browse to a website with a nice stack trace and make sure it passes the Burp
-proxy. It should automatically be picked up, query the API (invisible), and
-produce an "Issue" in the Dashboard tab (see the "Issue activity" frame) titled
-"Java Fingerprinter".
 
-### Wishlist
+### Extension Usage
 
-- Perhaps mention detected products in the issue title/name
-- Write documentation to, among other things, inform users that it'll send data
-  to our servers and is not to be used when you need to stay quiet...
-- What about the SOCKS proxy set in Burp? Fairly sure that our requests will
-  not use that. Should we?
+Browse to a website with a nice stack trace and make sure it passes through the
+Burp proxy. It should automatically be picked up, query the API (invisible),
+and produce an "Issue" in the Dashboard or Target tab.
 
