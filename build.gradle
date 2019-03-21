@@ -28,3 +28,9 @@ task fatJar(type: Jar) {
 jar {
     from configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
 }
+
+tasks.withType(AbstractArchiveTask) {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+
