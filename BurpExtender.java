@@ -156,6 +156,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 
 				byte[] httpreq = buildHttpRequest(url.getHost(), url2uri(url), "POST", body);
 				SHR response = parseHttpResponse(GlobalVars.callbacks.makeHttpRequest(url.getHost(), port, ishttps, httpreq));
+				GlobalVars.debug("Response status " + response.status);
 
 				if (response.status == 204) {
 					retval = null;
@@ -249,7 +250,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 
 			// The code should only reach here if we want to memoize the result. Otherwise, early exit (return) above!
 
-			GlobalVars.debug("Result: " + (retval == null ? "null" : retval.substring(0, 150)));
+			GlobalVars.debug("Result: " + (retval == null ? "null" : retval.substring(0, Math.min(150, retval.length()))));
 
 			HttpReqMemoization.put(tracedigest, retval);
 
@@ -294,7 +295,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 
 				response = response.replace("\\$", "$").replace("\\/", "/").replace("&nbsp;", " ");
 				response = java.net.URLDecoder.decode(response);
-				// HTML is not decoded because stack traces do not contain any illegal HTML characters
+				// HTML is not decoded because stack traces do not contain any characters that have to be &escaped;
 
 				matcher = pattern.matcher(response);
 
@@ -415,6 +416,9 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 						if (GlobalVars.config.getString("apikey").length() > 4) {
 							issuetext += " (no CVEs known)<br>";
 						}
+						else {
+							issuetext += "<br>";
+						}
 					}
 				}
 
@@ -471,6 +475,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 				}
 
 				GlobalVars.callbacks.addScanIssue(issue);
+				GlobalVars.debug("Logged issue");
 			}
 		});
 	}
