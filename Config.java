@@ -41,7 +41,7 @@ public class Config {
         put("apikey", "none");
         put("classblacklist", "");
 		put("issuepercve", false);
-        put("debug", true);
+        put("debug", false);
         put("logdups", false);
         put("issuetitle", "Stack Trace Fingerprint Found");
         put("apiurl", "https://beanstack.io/api/");
