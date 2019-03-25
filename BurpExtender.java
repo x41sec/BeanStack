@@ -350,7 +350,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 				float maxcvss = 0;
 				int i = 0;
 
-				issuetext += String.format("Found %d product%s:<br>", products.size(), products.size() == 1 ? "" : "s");
+				issuetext += String.format("X41 BeanStack found the following versions based on the stack trace:<br>");
 				for (Map.Entry<String,Object> product : products.entrySet()) {
 					i += 1;
 					issuetext += String.format("%d. %s<br>" + htmlindent, i, product.getKey());
