@@ -379,8 +379,14 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 				float maxcvss = 0;
 				int i = 0;
 
+				String outdated = "";
 				issuetext += String.format("X41 BeanStack found the following versions based on the stack trace:<br>");
 				for (Map.Entry<String,Object> product : products.entrySet()) {
+					if (product.getKey().equals("__BeanStack_needs_upgrading")) {
+						outdated = (String)product.getValue();
+						continue;
+					}
+
 					i += 1;
 					issuetext += String.format("%d. %s<br>" + htmlindent, i, product.getKey());
 
@@ -485,7 +491,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 					GlobalVars.callbacks.getHelpers().analyzeRequest(baseRequestResponse).getUrl(),
 					new IHttpRequestResponse[] { baseRequestResponse },
 					GlobalVars.config.getString("issuetitle"),
-					issuetext,
+					outdated + issuetext,
 					cvssToBurpSeverity(maxcvss),
 					certainty
 				);
