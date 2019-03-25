@@ -40,6 +40,7 @@ public class Config {
         put("enable", true);
         put("apikey", "none");
         put("classblacklist", "");
+		put("hashtrace", true);
 		put("issuepercve", false);
         put("debug", false);
         put("logdups", false);
@@ -55,7 +56,8 @@ public class Config {
         readableNames.put("logdups", "Log Duplicates");
         readableNames.put("apikey", "API Key");
         readableNames.put("classblacklist", "Blacklisted Class Prefixes");
-		readableNames.put("issuepercve", "Create an issue for each CVE");
+		readableNames.put("issuepercve", "Create an issue for each CVE*");
+        readableNames.put("hashtrace", "Hash traces before submission*");
 
         for (String key: settings.keySet()) {
             //callbacks.saveExtensionSetting(key, null); // purge saved settings
@@ -203,6 +205,9 @@ public class Config {
                 configured.put(key, box);
             }
         }
+
+		panel.add(new JLabel("\n* Only available with an API key"));
+		panel.add(new JLabel());
 
         int result = JOptionPane.showConfirmDialog(getBurpFrame(), panel, GlobalVars.EXTENSION_NAME + " settings", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
         if (result == JOptionPane.OK_OPTION) {

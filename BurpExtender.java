@@ -10,6 +10,7 @@ import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.concurrent.*;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -123,6 +124,30 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 		return false;
 	}
 
+	private String getHashedTrace(String stacktrace) {
+		// This function assumes a sanitized stack trace
+		String hashedTrace = "";
+		for (String line : stacktrace.split("\n")) {
+			String[] match = line.trim().split("\\(|\\)|:");
+			String fullfunctionname = match[0];
+			String sourcename = match[1];
+			int lineno = Integer.parseInt(match[2]);
+
+			String[] splitfunc = fullfunctionname.split("\\.");
+			String[] tmp = Arrays.copyOfRange(splitfunc, 0, splitfunc.length - 1);
+			String classname = String.join(".", tmp);
+			String functionname = splitfunc[splitfunc.length - 1];
+
+			String functionname_2b = burp.Blake2b.Engine.LittleEndian.toHexStr(blake2b.digest(functionname.getBytes()));
+			String classname_2b = burp.Blake2b.Engine.LittleEndian.toHexStr(blake2b.digest(classname.getBytes()));
+			String fullfunctionname_2b = burp.Blake2b.Engine.LittleEndian.toHexStr(blake2b.digest(fullfunctionname.getBytes()));
+
+			hashedTrace += String.format("%s:%s:%s:%d\n", fullfunctionname_2b, classname_2b, functionname_2b, lineno);
+		}
+
+		return hashedTrace;
+	}
+
 	private String checktrace(String stacktrace) {
 		String retval = null; // Return value
 
@@ -137,13 +162,14 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 			while (retry) {
 				retry = false;
 
-				GlobalVars.debug(String.format("Submitting a trace to %s: %s", GlobalVars.config.getString("apiurl"), stacktrace.substring(0, 50)));
+				boolean isset_apikey = GlobalVars.config.getString("apikey").length() > 4;
+				boolean submit_hashed_trace = isset_apikey && GlobalVars.config.getBoolean("hashtrace");
 
-				URL url = new URL(GlobalVars.config.getString("apiurl"));
+				URL url = new URL(GlobalVars.config.getString("apiurl") + (submit_hashed_trace ? "hashTrace" : ""));
 				boolean ishttps = url.getProtocol().toLowerCase().equals("https");
 				int port = url.getPort() == -1 ? url.getDefaultPort() : url.getPort();
 
-				boolean isset_apikey = GlobalVars.config.getString("apikey").length() > 4;
+				GlobalVars.debug(String.format("Submitting a trace to %s", url.toString()));
 
 				String body = "";
 				if (isset_apikey) {
@@ -152,7 +178,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 					body += "&";
 				}
 				body += "trace=";
-				body += java.net.URLEncoder.encode(stacktrace);
+				body += java.net.URLEncoder.encode(submit_hashed_trace ? getHashedTrace(stacktrace) : stacktrace);
 
 				byte[] httpreq = buildHttpRequest(url.getHost(), url2uri(url), "POST", body);
 				SHR response = parseHttpResponse(GlobalVars.callbacks.makeHttpRequest(url.getHost(), port, ishttps, httpreq));
@@ -280,7 +306,6 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 
 		threader.submit(new Runnable() {
 			public void run() {
-				Matcher matcher = null;
 				String response = null;
 
 				// Basically the pattern checks /\s[valid class path chars].[more valid class chars]([filename chars].java:1234)/
@@ -297,7 +322,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 				response = java.net.URLDecoder.decode(response);
 				// HTML is not decoded because stack traces do not contain any characters that have to be &escaped;
 
-				matcher = pattern.matcher(response);
+				Matcher matcher = pattern.matcher(response);
 
 				// Reconstruct the trace (since who knows what might be in between the lines, e.g. "&lt;br&gt;" or "," or "\n")
 				String stacktrace = "";
@@ -323,6 +348,10 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 					else {
 						GlobalVars.debug(String.format("[filtered out blacklisted class: %s]", matcher.group(2)));
 					}
+				}
+
+				if (stacktrace.length() == 0) {
+					return;
 				}
 
 				Instant start = Instant.now();
