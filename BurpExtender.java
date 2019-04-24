@@ -380,8 +380,15 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 				int i = 0;
 
 				String outdated = "";
+				String notice = "";
+
 				issuetext += String.format("X41 BeanStack found the following versions based on the stack trace:<br>");
 				for (Map.Entry<String,Object> product : products.entrySet()) {
+					if (product.getKey().equals("__BeanStack_demo")) {
+						notice = "<br><br>Note: CVEs are shown for this stack trace as a demo. To view CVEs with other stack traces, please <a href='https://beanstack.io/signup.html'>request an API key</a>.";
+						continue;
+					}
+
 					if (product.getKey().equals("__BeanStack_needs_upgrading")) {
 						outdated = (String)product.getValue();
 						continue;
@@ -462,6 +469,10 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 						+ "comparisons because the version scheme is unknown (e.g. it could be that 1.81 is patch release 1 of version 1.8, or it could be that 1.81 comes after 1.9).";
 				}
 
+				if (notice.equals("") && GlobalVars.config.getString("apikey").length() <= 4) {
+					notice = "<br><br>Note: to check for CVEs, please <a href='https://beanstack.io/signup.html'>request an API key</a> or <a href='https://beanstack.io/settings.html'>configure your key</a>.";
+				}
+
 				String certainty;
 				if (any_uncertain_cves || any_certain_cves) {
 					// If there are CVEs at all
@@ -491,7 +502,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 					GlobalVars.callbacks.getHelpers().analyzeRequest(baseRequestResponse).getUrl(),
 					new IHttpRequestResponse[] { baseRequestResponse },
 					GlobalVars.config.getString("issuetitle"),
-					outdated + issuetext,
+					outdated + issuetext + notice,
 					cvssToBurpSeverity(maxcvss),
 					certainty
 				);
