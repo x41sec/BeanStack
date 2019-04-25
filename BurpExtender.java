@@ -58,6 +58,16 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 
 		// Check if we already checked this URL
 		IScanIssue[] issuelist = GlobalVars.callbacks.getScanIssues("");
+
+		if (issuelist == null) {
+			JOptionPane.showMessageDialog(null,
+				"Error loading scan issues. Unfortunately, this extension\nuses features only available in Burp Pro.",
+				"Burp Extension " + GlobalVars.EXTENSION_NAME,
+				JOptionPane.ERROR_MESSAGE
+			);
+			return;
+		}
+
 		for (IScanIssue si : issuelist) {
 			// Only add fingerprinting items
 			if (si.getIssueName().equals(GlobalVars.config.getString("issuetitle"))) {
