@@ -82,7 +82,6 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 	private byte[] buildHttpRequest(String host, String URI, String method, String body) {
 		String headers = "";
 		headers += "User-Agent: " + GlobalVars.USER_AGENT + "/" + GlobalVars.VERSION + CRLF;
-		headers += "Authorization: Basic ZnJpZW5kOmVudGVyICUp\r\n"; // Yes, we know we are publicly committing this, it is just for the private beta ;)
 		if (method.equals("POST")) {
 			headers += "Content-Type: application/x-www-form-urlencoded\r\n";
 			headers += "Content-Length: " + body.length() + CRLF;
