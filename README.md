@@ -18,6 +18,8 @@ or use your own build from `build/libs/beanstack.jar`.
 1. Select the `jar` file
 1. Leave all options as default, click "next", and finish the wizard
 
+![Installation screenshot](https://beanstack.io/img/burp-install.png)
+
 
 ### Extension Usage
 
@@ -25,6 +27,8 @@ Browse to a website with a nice stack trace (such as [beanstack.io](https://bean
 and make sure the response passes through the Burp proxy. It should
 automatically be picked up, query the API (in the background), and produce an
 "Issue" in the Dashboard or Target tab.
+
+![Example issue screenshot](https://beanstack.io/img/burp-extension.png)
 
 
 ### Building From Source
