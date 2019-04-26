@@ -474,8 +474,8 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 				}
 
 				if (any_uncertain_cves) {
-					issuetext += "<br>* These CVEs apply to some versions of the product and may not apply to the version(s) found. We can only do exact version matches and not range "
-						+ "comparisons because the version scheme is unknown (e.g. it could be that 1.81 is patch release 1 of version 1.8, or it could be that 1.81 comes after 1.9).";
+					issuetext += "<br>* This CVE applies to a range of versions. Many projects use non-semver versioning schemes and CVEs do not mention which versioning scheme "
+						+ "is used, so we can only do reliable version matching when an exact version is given instead of a range. Therefore, this CVE may not apply.";
 				}
 
 				if (notice.equals("") && GlobalVars.config.getString("apikey").length() <= 4) {
