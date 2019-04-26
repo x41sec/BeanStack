@@ -5,7 +5,7 @@
 <https://beanstack.io>
 
 
-### Installing the Burp Extension
+## Installing the Burp Extension
 
 Download [the latest release](https://github.com/x41sec/BeanStack/releases/latest)
 or use your own build from `build/libs/beanstack.jar`.
@@ -18,20 +18,20 @@ or use your own build from `build/libs/beanstack.jar`.
 1. Select the `jar` file
 1. Leave all options as default, click "next", and finish the wizard
 
-![Installation screenshot](https://beanstack.io/img/burp-install.png)
+<img alt="Installation screenshot" src="https://beanstack.io/img/burp-install.png" width=400>
 
 
-### Extension Usage
+## Extension Usage
 
 Browse to a website with a nice stack trace (such as [beanstack.io](https://beanstack.io))
 and make sure the response passes through the Burp proxy. It should
 automatically be picked up, query the API (in the background), and produce an
 "Issue" in the Dashboard or Target tab.
 
-![Example issue screenshot](https://beanstack.io/img/burp-extension.png)
+<img alt="Example issue screenshot" src="https://beanstack.io/img/burp-extension.png" width=600>
 
 
-### Building From Source
+## Building From Source
 
 Dependencies:
 
