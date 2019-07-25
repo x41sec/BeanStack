@@ -75,6 +75,23 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 			}
 		}
 		GlobalVars.debug("Found " + Integer.toString(AlreadyFingerprinted.size()) + " fingerprints in already-existing issues (to avoid creating duplicate issues).");
+
+		threader.submit(new Runnable() {
+			public void run() {
+				int timeSlept = 0;
+				while (GlobalVars.config.getBurpFrame().getJMenuBar() == null) {
+					if (timeSlept > GlobalVars.SLEEP_MAXTIME * 1000) {
+						GlobalVars.debug("Sleeper timed out. Here be dragons.");
+						break;
+					}
+
+					try { java.lang.Thread.sleep(GlobalVars.SLEEP_DURATION); } catch (java.lang.InterruptedException e) { break; }
+					GlobalVars.debug("Sleeping " + GlobalVars.SLEEP_DURATION + "ms before adding " + GlobalVars.EXTENSION_NAME_SHORT + " menu button because Burp's menu bar UI does not yet exist...");
+					timeSlept += GlobalVars.SLEEP_DURATION;
+				}
+				SwingUtilities.invokeLater(new BeanstackMenu());
+			}
+		});
     }
 
 	private String cvssToBurpSeverity(float cvss) {
@@ -222,7 +239,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 							showed429Alert = true;
 
 							// No API key set. Prompt for one and mention where they can get one.
-							String result = JOptionPane.showInputDialog(Config.getBurpFrame(),
+							String result = JOptionPane.showInputDialog(GlobalVars.config.getBurpFrame(),
 								"You have reached the request limit for " + GlobalVars.EXTENSION_NAME_SHORT + ". "
 									+ "Please register on " + GlobalVars.REGURL + "\nfor a free API key. If you already have an API key, please enter it here.",
 								GlobalVars.EXTENSION_NAME + " API key",
@@ -249,7 +266,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 					// N.B. we thread this, but due to the thread pool of 1, further requests will just be queued, so we won't get dialogs on top of each other.
 					// Further requests will also automatically use the API key if the user enters one here, even if they were already queued previously.
 
-					String result = (String)JOptionPane.showInputDialog(Config.getBurpFrame(),
+					String result = (String)JOptionPane.showInputDialog(GlobalVars.config.getBurpFrame(),
 						"Your API key is invalid.\nIf you want to use a different API key, please enter it here.",
 						GlobalVars.EXTENSION_NAME + " API key invalid",
 						JOptionPane.PLAIN_MESSAGE,
@@ -301,7 +318,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 		return null;
 	}
 
-    @Override
+	@Override
 	public void processHttpMessage(int toolFlag, boolean messageIsRequest, IHttpRequestResponse baseRequestResponse) {
 		if (messageIsRequest) {
 			// TODO maybe also the request instead of only the response?
@@ -533,6 +550,43 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 				GlobalVars.debug("Logged issue");
 			}
 		});
+	}
+}
+
+class BeanstackMenu implements Runnable, java.awt.event.ActionListener, IExtensionStateListener {
+	private JMenu topMenu;
+
+	BeanstackMenu() {
+		GlobalVars.callbacks.registerExtensionStateListener(this);
+	}
+
+	public void run() {
+		topMenu = new JMenu(GlobalVars.EXTENSION_NAME_SHORT);
+
+		JMenuItem settingsButton = new JMenuItem(GlobalVars.SETTINGS);
+		settingsButton.addActionListener(this);
+
+		JMenuItem menuHeader = new JMenuItem(GlobalVars.EXTENSION_NAME);
+		menuHeader.setEnabled(false);
+
+		topMenu.add(menuHeader);
+		topMenu.add(settingsButton);
+
+		GlobalVars.config.getBurpFrame().getJMenuBar().add(topMenu);
+		GlobalVars.config.getBurpFrame().getJMenuBar().updateUI();
+	}
+
+	public void actionPerformed(java.awt.event.ActionEvent e) {
+		SwingUtilities.invokeLater(new Runnable() {
+			public void run(){
+				GlobalVars.config.showSettings();
+			}
+		});
+	}
+
+	public void extensionUnloaded() {
+		GlobalVars.config.getBurpFrame().getJMenuBar().remove(topMenu);
+		GlobalVars.config.getBurpFrame().getJMenuBar().updateUI();
 	}
 }
 
