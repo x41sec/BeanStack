@@ -178,7 +178,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 		String retval = null; // Return value
 
 		try {
-			ByteBuffer tracedigest = ByteBuffer.wrap(blake2b.digest(stacktrace.getBytes("UTF-8")));
+			ByteBuffer tracedigest = ByteBuffer.wrap(blake2b.digest((GlobalVars.config.getString("apikey") + stacktrace).getBytes("UTF-8")));
 			if (HttpReqMemoization.containsKey(tracedigest)) {
 				GlobalVars.debug("Trace found in memoization table, returning stored response.");
 				return HttpReqMemoization.get(tracedigest);
