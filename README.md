@@ -7,8 +7,10 @@
 
 ## Installing the Burp Extension
 
-Download [the latest release](https://github.com/x41sec/BeanStack/releases/latest)
-or use your own build from `build/libs/beanstack.jar`.
+The easiest way is to download *BeanStack* from the BApp Store, which can be found in your Burp Suite under the Extender tab.
+
+Alternatively, you can download [the latest release](https://github.com/x41sec/BeanStack/releases/latest)
+from this GitHub repository, or use your own build from `build/libs/beanstack.jar`. To install the jar:
 
 1. Launch Burp
 1. Create a temporary project or select a new/existing one
