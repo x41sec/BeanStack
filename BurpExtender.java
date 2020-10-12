@@ -335,52 +335,52 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 		return tracestr;
 	}
 
-    private String DecodeStackTraceHtml(String tracestr) {
-        // It seems we'd need to include a library to do HTML decoding... but it's not all that difficult given the limited charset in a stack trace,
+	private String DecodeStackTraceHtml(String tracestr) {
+		// It seems we'd need to include a library to do HTML decoding... but it's not all that difficult given the limited charset in a stack trace,
 		// so that seems like overkill, and now we can do things like fix double encoding, ignore invalid encoding without aborting altogether, etc.
 
-        if ( ! tracestr.contains("&")) {
-            return tracestr;
-        }
+		if ( ! tracestr.contains("&")) {
+			return tracestr;
+		}
 
-        tracestr = tracestr.replace("&amp;", "&"); // Fix any double encoding first
+		tracestr = tracestr.replace("&amp;", "&"); // Fix any double encoding first
 
-        Map<String, String> replacemap = new HashMap<String, String>() {{
-            put("nbsp", " ");
-            put("nonbreakingspace", " ");
-            put("tab", " ");
-            put("lt", "<");
-            put("gt", ">");
-            put("dollar", "$");
-            put("lpar", "(");
-            put("rpar", ")");
-            put("period", ".");
-            put("colon", ":");
-        }};
+		Map<String, String> replacemap = new HashMap<String, String>() {{
+			put("nbsp", " ");
+			put("nonbreakingspace", " ");
+			put("tab", " ");
+			put("lt", "<");
+			put("gt", ">");
+			put("dollar", "$");
+			put("lpar", "(");
+			put("rpar", ")");
+			put("period", ".");
+			put("colon", ":");
+		}};
 		// If the {1,6} is expanded to allow >=8 chars (technically valid b/c leading zeroes... currently unsupported because that's within the realm of obfuscation
 		// and if you want to obfuscate your stack traces... there are easier methods to evade BeanStack), then you will need to try{} below to avoid >int_max.
-        Pattern pattern = Pattern.compile("(&(#[0-9]{1,6}|#x[0-9a-f]{1,9}|nbsp|NonBreakingSpace|tab|lt|gt|dollar|lpar|rpar|period|colon);)", Pattern.CASE_INSENSITIVE);
-        Matcher matcher = pattern.matcher(tracestr);
-        while (matcher.find()) {
-            if (matcher.group(2).startsWith("#")) { // If we have a third group, then we matched a numeric or hex entity
+		Pattern pattern = Pattern.compile("(&(#[0-9]{1,6}|#x[0-9a-f]{1,9}|nbsp|NonBreakingSpace|tab|lt|gt|dollar|lpar|rpar|period|colon);)", Pattern.CASE_INSENSITIVE);
+		Matcher matcher = pattern.matcher(tracestr);
+		while (matcher.find()) {
+			if (matcher.group(2).startsWith("#")) { // If we have a third group, then we matched a numeric or hex entity
 				if (matcher.group(2).toLowerCase().startsWith("#x")) {
 					tracestr = tracestr.replace(matcher.group(1), ((char)Integer.parseInt(matcher.group(2).substring(2), 16)) + "");
 				}
 				else {
 					tracestr = tracestr.replace(matcher.group(1), ((char)Integer.parseInt(matcher.group(2).substring(1))) + "");
 				}
-            }
-            else {
+			}
+			else {
 				String lce = matcher.group(2).toLowerCase();
 				if ( ! replacemap.containsKey(lce)) {
 					continue;
 				}
-                tracestr = tracestr.replace(matcher.group(1), replacemap.get(lce));
-            }
-        }
+				tracestr = tracestr.replace(matcher.group(1), replacemap.get(lce));
+			}
+		}
 
-        return tracestr;
-    }
+		return tracestr;
+	}
 
 	@Override
 	public void processHttpMessage(int toolFlag, boolean messageIsRequest, IHttpRequestResponse baseRequestResponse) {
