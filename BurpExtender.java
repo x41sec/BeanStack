@@ -38,6 +38,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 
 	final String htmlindent = "&nbsp;&nbsp;&nbsp;";
 	final String CRLF = "\r\n";
+	final String hexchars = "0123456789abcdefABCDEF";
 
 	@Override
 	public void registerExtenderCallbacks(final IBurpExtenderCallbacks callbacks) {
@@ -318,6 +319,22 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 		return null;
 	}
 
+	private String DecodeUrl(String tracestr) {
+		// Because java.net.URLDecoder.decode (understandably) throws an exception if there is a percent symbol anywhere not followed by two hex chars.
+
+		int pos = -1;
+		while ((pos = tracestr.indexOf("%", pos + 1)) > -1) {
+			if (pos > tracestr.length() - 2) break;
+
+			if (hexchars.indexOf(tracestr.charAt(pos + 1)) > -1 && hexchars.indexOf(tracestr.charAt(pos + 2)) > -1) {
+				tracestr = tracestr.replace(tracestr.substring(pos, pos + 3), ((char)Integer.parseInt(tracestr.substring(pos + 1, pos + 3), 16)) + "");
+				pos--;
+			}
+		}
+
+		return tracestr;
+	}
+
     private String DecodeStackTraceHtml(String tracestr) {
         // It seems we'd need to include a library to do HTML decoding... but it's not all that difficult given the limited charset in a stack trace,
 		// so that seems like overkill, and now we can do things like fix double encoding, ignore invalid encoding without aborting altogether, etc.
@@ -356,7 +373,6 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
             else {
 				String lce = matcher.group(2).toLowerCase();
 				if ( ! replacemap.containsKey(lce)) {
-					System.out.println(lce);
 					continue;
 				}
                 tracestr = tracestr.replace(matcher.group(1), replacemap.get(lce));
@@ -369,7 +385,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 	@Override
 	public void processHttpMessage(int toolFlag, boolean messageIsRequest, IHttpRequestResponse baseRequestResponse) {
 		if (messageIsRequest) {
-			// TODO maybe also the request instead of only the response?
+			// If the trace is locally generated, it probably isn't interesting for us
 			return;
 		}
 
@@ -382,9 +398,6 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 			public void run() {
 				String response = null;
 
-				// Basically the pattern checks /\s[valid class path chars].[more valid class chars]([filename chars].java:1234)/
-				Pattern pattern = Pattern.compile("(\\s|/)([a-zA-Z0-9\\.\\$]{1,300}\\.[a-zA-Z0-9\\.\\$]{1,300})\\(([a-zA-Z0-9]{1,300})\\.java:\\d{1,6}\\)");
-
 				try {
 					response = new String(baseRequestResponse.getResponse(), "UTF-8");
 				}
@@ -392,10 +405,12 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 					e.printStackTrace(new java.io.PrintStream(GlobalVars.debug));
 				}
 
-				response = response.replace("\\$", "$").replace("\\/", "/").replace("&nbsp;", " ");
-				response = java.net.URLDecoder.decode(response);
+				response = response.replace("\\$", "$").replace("\\/", "/");
+				response = DecodeUrl(response);
 				response = DecodeStackTraceHtml(response);
 
+				// Basically the pattern checks /\s[valid class path chars].[more valid class chars]([filename chars].java:1234)/
+				Pattern pattern = Pattern.compile("(\\s|/)([a-zA-Z0-9\\.\\$]{1,300}\\.[a-zA-Z0-9\\.\\$]{1,300})\\(([a-zA-Z0-9]{1,300})\\.java:\\d{1,6}\\)");
 				Matcher matcher = pattern.matcher(response);
 
 				// Reconstruct the trace (since who knows what might be in between the lines, e.g. "&lt;br&gt;" or "," or "\n")
