@@ -36,12 +36,13 @@ public class Config {
     public Config() {
         settings = new LinkedHashMap<>();
         // These put()s determine the order shown on the settings screen
-		// Note that the default values are documented on the website, so update accordingly
+        // Note that the default values are documented on the website, so update accordingly
         put("enable", true);
         put("apikey", "none");
         put("classblacklist", "");
-		put("hashtrace", true);
-		put("issuepercve", false);
+        put("hashtrace", true);
+        put("issuepercve", false);
+        put("sizelimit", 25);
         put("debug", false);
         put("logdups", false);
         put("issuetitle", "Stack Trace Fingerprint Found");
@@ -56,8 +57,9 @@ public class Config {
         readableNames.put("logdups", "Log Duplicates");
         readableNames.put("apikey", "API Key");
         readableNames.put("classblacklist", "Blacklisted Class Prefixes");
-		readableNames.put("issuepercve", "Create an issue for each CVE*");
-        readableNames.put("hashtrace", "Hash traces before submission*");
+        readableNames.put("issuepercve", "Create an Issue for Each CVE*");
+        readableNames.put("hashtrace", "Hash Traces before Submission*");
+        readableNames.put("sizelimit", "Response Size Limit (RAM)");
 
         for (String key: settings.keySet()) {
             //callbacks.saveExtensionSetting(key, null); // purge saved settings
@@ -206,8 +208,8 @@ public class Config {
             }
         }
 
-		panel.add(new JLabel("\n* Only available with an API key"));
-		panel.add(new JLabel());
+        panel.add(new JLabel("\n* Only available with an API key"));
+        panel.add(new JLabel());
 
         int result = JOptionPane.showConfirmDialog(getBurpFrame(), panel, GlobalVars.EXTENSION_NAME + " settings", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
         if (result == JOptionPane.OK_OPTION) {

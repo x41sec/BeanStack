@@ -397,9 +397,19 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 		threader.submit(new Runnable() {
 			public void run() {
 				String response = null;
+				int sizelimit = GlobalVars.config.getInt("sizelimit") * 1024 * 1024;
 
 				try {
-					response = new String(baseRequestResponse.getResponse(), "UTF-8");
+					byte[] bytesresponse = baseRequestResponse.getResponse();
+					int startedwith = bytesresponse.length;
+					if (bytesresponse.length > sizelimit) {
+						byte[] partial = new byte[sizelimit];
+						System.arraycopy(bytesresponse, 0                                   , partial, 0            , sizelimit / 2);
+						System.arraycopy(bytesresponse, bytesresponse.length - sizelimit / 2, partial, sizelimit / 2, sizelimit / 2);
+						bytesresponse = partial;
+						partial = null;
+					}
+					response = new String(bytesresponse, "UTF-8");
 				}
 				catch (java.io.UnsupportedEncodingException e) {
 					e.printStackTrace(new java.io.PrintStream(GlobalVars.debug));
@@ -422,8 +432,7 @@ public class BurpExtender implements IBurpExtender, IHttpListener {
 					}
 					if ( ! (matcher.group(2).indexOf(matcher.group(3) + "$") >= 2
 							|| matcher.group(2).indexOf(matcher.group(3) + ".") >= 2)) {
-						// TODO is this check too strict?
-						// (It's strict because, if it's too loose, we might submit all sorts of private data to our API)
+						// (^Some extra checks to prevent submitting false positives to our API.)
 						// The filename should occur in the first part, either followed by a dollar or by a dot,
 						// and it usually does not start with that (so match from position 2 onwards, because
 						// there should be at least 1 character and a dot, like "a.test.run(test.java:42)").
